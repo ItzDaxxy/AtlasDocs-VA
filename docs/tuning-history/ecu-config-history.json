@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "description": "Historical record of ECU table and parameter changes",
+  "base_rom": {
+    "rom_id": "",
+    "description": "",
+    "date_loaded": ""
+  },
+  "mechanical_issues": [
+    {
+      "id": "MECH-2025-12-18_001",
+      "date_reported": "2025-12-18",
+      "status": "investigating",
+      "category": "exhaust",
+      "symptoms": [
+        "Rhythmic 'poof' sound under acceleration",
+        "Sound appears to come from mid/rear of car near transmission tunnel",
+        "1135 knock events at idle in datalog (likely false knock from same issue)"
+      ],
+      "suspected_cause": "Exhaust leak - turbo→downpipe, headers, or mid-pipe connection",
+      "diagnostic_notes": [
+        "Knock pattern: idle-only with DAM=1.0 and FKL=0° = false knock signature",
+        "Poof under acceleration suggests boost pressure escaping through gap",
+        "User ruled out mechanical contact with pulleys/flywheel",
+        "Sound location suggests front-pipe, cat, or mid-pipe connection"
+      ],
+      "inspection_checklist": [
+        { "item": "Turbo → Downpipe flange/gasket", "status": "pending" },
+        { "item": "Downpipe → Front pipe connection", "status": "pending" },
+        { "item": "Front pipe → Cat gasket (donut)", "status": "pending" },
+        { "item": "Cat → Midpipe connection", "status": "pending" },
+        { "item": "Flex pipe condition (if equipped)", "status": "pending" },
+        { "item": "Exhaust hangers/mounts", "status": "pending" },
+        { "item": "Look for black soot streaks at joints", "status": "pending" }
+      ],
+      "resolution": null,
+      "follow_up": {
+        "action": "Capture new datalog after exhaust repair",
+        "expected_outcome": "Knock events should drop to near-zero",
+        "status": "awaiting_repair"
+      },
+      "related_analysis": "2025-12-18_001",
+      "ecu_changes_blocked": true,
+      "block_reason": "Do not adjust knock thresholds or fuel tables until exhaust leak is confirmed and repaired"
+    }
+  ],
+  "changes": []
+}

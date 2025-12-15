@@ -36,8 +36,8 @@ Patches modify ECU behavior at the code level:
 ### Common Patches for VA WRX
 1. **Speed Limiter Removal**: Disables factory 180 km/h (Japan) or 250 km/h limit
 2. **Rev Limiter Adjustment**: Modify hard cut RPM limit
-3. **Secondary Air Injection Disable**: For emissions delete builds
-4. **EGR Disable**: Exhaust gas recirculation system bypass
+
+
 
 ### Safety Considerations
 - Document all active patches in your tune file

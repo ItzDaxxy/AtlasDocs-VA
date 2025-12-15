@@ -27,6 +27,15 @@ atlas-docs/
     └── json/            # JSON format (machine-readable)
 ```
 
+## Usage
+
+### Adding a New Table
+
+1. Take a screenshot of the table in Atlas
+2. Place it in `screenshots/`
+3. Create a markdown file in the appropriate `tables/` subdirectory
+4. Use the template from `templates/table-template.md`
+5. Run the converter
 
 ### Converting to HTML/JSON
 
@@ -40,6 +49,10 @@ python scripts/convert.py tables/ignition
 # Convert single file
 python scripts/convert.py tables/ignition/primary-tgvs-closed.md
 ```
+
+### Viewing Documentation
+
+After conversion, open `output/html/index.html` in a browser.
 
 ## Table Documentation Format
 
