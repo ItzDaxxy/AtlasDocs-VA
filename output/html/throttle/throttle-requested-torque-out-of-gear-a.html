@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Throttle - Requested Torque - Out-of-Gear - A</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #1a1a2e; border-bottom: 2px solid #4a4e69; padding-bottom: 10px; }
+        h2 { color: #4a4e69; margin-top: 30px; }
+        h3 { color: #666; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #4a4e69;
+            color: white;
+        }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        a { color: #4a4e69; }
+        a:hover { color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <nav><a href="../index.html">&larr; Back to Index</a></nav>
+    <pre># Throttle - Requested Torque - Out-of-Gear - A
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Category** | Throttle |
+| **Platform** | VA WRX (2015-2021) |
+| **Table Type** | 3D Map |
+| **Dimensions** | 21x20 |
+| **Data Unit** | NM |
+| **Source File** | `Throttle - Requested Torque - Out-of-Gear - A - 2017 - RogueWRX.csv` |
+
+## Description
+
+*Add description of what this table controls and when it's used.*
+
+## Axes
+
+### X-Axis
+
+- **Parameter**: Throttle - Requested Torque - Accelerator Position
+- **Unit**: PERCENT
+- **Range**: 0.0000 to 100.0000
+- **Points**: 20
+
+### Y-Axis
+
+- **Parameter**: RPM
+- **Unit**: RPM
+- **Range**: 800.0000 to 6805.0781
+- **Points**: 21
+
+## Cell Values
+
+- **Unit**: NM
+- **Data Type**: Float
+
+## Data Preview
+
+First 8x8 corner of the table:
+
+```
+       RPM |     0.0000 |     0.2502 |     0.2594 |     0.2701 |     0.2792 |     0.5005 |     0.9995 |     2.0005 |
+--------------------------------------------------------------------------------------------------------------------
+  800.0000 |     0.0000 |     3.0000 |     3.1000 |     3.2000 |     3.3000 |     4.0000 |     7.0000 |    14.9000 |
+ 1200.0000 |     0.0000 |     2.6000 |     2.7000 |     2.8000 |     2.9000 |     3.0000 |     5.0000 |     7.9000 |
+ 1600.0000 |     0.0000 |     2.5000 |     2.5125 |     2.5250 |     2.5375 |     2.5500 |     2.8000 |     3.0000 |
+ 2000.0000 |     0.0000 |     2.5000 |     2.5125 |     2.5250 |     2.5375 |     2.5500 |     2.8000 |     3.0000 |
+ 2400.0000 |     0.0000 |     2.5000 |     2.5125 |     2.5250 |     2.5375 |     2.5500 |     2.8000 |     3.0000 |
+ 2800.0000 |     0.0000 |     1.5000 |     1.5125 |     1.5250 |     1.5375 |     1.5750 |     1.6000 |     1.8000 |
+ 3200.0000 |     0.0000 |     1.3000 |     1.3125 |     1.3250 |     1.3375 |     1.3750 |     1.4250 |     1.5000 |
+ 3600.0000 |     0.0000 |     1.1000 |     1.1125 |     1.1250 |     1.1375 |     1.1750 |     1.2000 |     1.2500 |
+```
+
+## Functional Behavior
+
+*Add description of how the ECU interpolates and uses this table.*
+
+## Related Tables
+
+- TBD
+
+## Related Datalog Parameters
+
+- TBD
+
+## Tuning Notes
+
+*Add practical tuning guidance and typical modification patterns.*
+
+## Warnings
+
+*Add safety considerations and potential risks.*
+</pre>
+</body>
+</html>

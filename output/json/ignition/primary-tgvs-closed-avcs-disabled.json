@@ -1,0 +1,75 @@
+{
+  "name": "Ignition - Primary - TGVs Closed (AVCS Disabled)",
+  "category": "Ignition",
+  "platform": "VA WRX (2015-2021)",
+  "table_type": "3D Map",
+  "data_type": "sbyte (signed byte)",
+  "address": "TBD",
+  "description": "Primary ignition timing base table used when Tumble Generator Valves (TGVs) are closed and AVCS (Active Valve Control System) cam timing is disabled. This is one of four base ignition tables that blend together based on TGV position and AVCS state.\n\nThis table provides the foundational timing values before any dynamic advance, knock correction, or other compensations are applied.",
+  "x_axis": {
+    "parameter": "Engine RPM",
+    "units": "RPM",
+    "range": "0 - 7000+",
+    "resolution": "Variable (typically 250-500 RPM increments)"
+  },
+  "y_axis": {
+    "parameter": "Engine Load",
+    "units": "g/rev (grams per revolution)",
+    "range": "0 - 3.0+",
+    "resolution": "Variable"
+  },
+  "cell_values": {
+    "units": "Degrees BTDC (Before Top Dead Center)",
+    "data_type": "sbyte (signed byte)",
+    "range": "-20 to +50",
+    "default_range": "Varies by cell (typically 5-35 degrees)"
+  },
+  "functional_behavior": "The ECU blends between the four primary ignition base tables using two ratio parameters:\n\n1. **Engine - TGV Map Ratio (%, ubyte)** - Determines blend between TGVs Closed and TGVs Open tables\n2. **Engine - AVCS Map Ratio (%, ubyte)** - Determines blend between AVCS Disabled and AVCS Enabled tables\n\nThe resulting base timing is then modified by:\n- Dynamic Advance tables (scaled by DAM)\n- Knock correction (KCA/KCLR)\n- Temperature compensations\n- Start-up enrichment timing\n\nFinal timing is monitored via \"Ignition - Commanded Final (deg, sbyte)\".",
+  "related_tables": [
+    {
+      "name": "Ignition - Primary - TGVs Closed (AVCS Enabled)",
+      "link": "./primary-tgvs-closed-avcs-enabled.md"
+    },
+    {
+      "name": "Ignition - Primary - TGVs Open (AVCS Disabled)",
+      "link": "./primary-tgvs-open-avcs-disabled.md"
+    },
+    {
+      "name": "Ignition - Primary - TGVs Open (AVCS Enabled)",
+      "link": "./primary-tgvs-open-avcs-enabled.md"
+    },
+    {
+      "name": "Ignition - Primary - Advance - TGVs Closed (Base)",
+      "link": "./advance-tgvs-closed-base.md"
+    }
+  ],
+  "related_parameters": [
+    {
+      "name": "Ignition - Primary - Base Table (deg, sbyte)",
+      "description": "Monitored base timing after table blending"
+    },
+    {
+      "name": "Ignition - Commanded Final (deg, sbyte)",
+      "description": "Final timing sent to coils"
+    },
+    {
+      "name": "Engine - TGV Map Ratio (%, ubyte)",
+      "description": "Current TGV blend ratio"
+    },
+    {
+      "name": "Engine - AVCS Map Ratio (%, ubyte)",
+      "description": "Current AVCS blend ratio"
+    },
+    {
+      "name": "Knock Control - Dynamic Advance Multiplier (ubyte)",
+      "description": "DAM value (0.00-1.00)"
+    },
+    {
+      "name": "Knock - Feedback Correction (deg, sbyte)",
+      "description": "Real-time knock correction"
+    }
+  ],
+  "tuning_notes": "- This table is primarily active at lower RPM and during cold engine operation when TGVs remain closed\n- TGVs typically open above ~3500-4000 RPM, shifting blend toward the \"TGVs Open\" tables\n- Conservative timing in this table helps prevent knock during cold start conditions\n- When tuning, focus first on the cells active during your typical operating conditions\n- Use datalog to identify which load/RPM cells are most frequently accessed\n- Always tune with knock monitoring enabled and DAM observed",
+  "warnings": "- Excessive ignition advance can cause detonation (knock), leading to engine damage\n- Monitor Feedback Knock Correction and Fine Knock Learn during tuning\n- Any sustained knock correction indicates timing should be reduced\n- DAM dropping below 1.0 indicates the ECU is reducing advance due to detected knock\n- Always use quality fuel meeting minimum octane requirements (91+ AKI recommended)\n\n---\n*Last updated: 2024-12-14*\n*Platform: VA WRX MT (FA20DIT)*",
+  "last_updated": ""
+}

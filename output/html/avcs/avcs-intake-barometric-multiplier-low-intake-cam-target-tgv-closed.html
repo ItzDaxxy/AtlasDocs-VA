@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AVCS - Intake - Barometric Multiplier Low - Intake Cam Target (TGV Closed)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+            color: #333;
+        }
+        h1 { color: #1a1a2e; border-bottom: 2px solid #4a4e69; padding-bottom: 10px; }
+        h2 { color: #4a4e69; margin-top: 30px; }
+        h3 { color: #666; }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #4a4e69;
+            color: white;
+        }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        a { color: #4a4e69; }
+        a:hover { color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <nav><a href="../index.html">&larr; Back to Index</a></nav>
+    <pre># AVCS - Intake - Barometric Multiplier Low - Intake Cam Target (TGV Closed)
+
+## Overview
+
+| Property | Value |
+|----------|-------|
+| **Category** | AVCS |
+| **Platform** | VA WRX (2015-2021) |
+| **Table Type** | 3D Map |
+| **Dimensions** | 20x16 |
+| **Data Unit** | DEGREES |
+| **Source File** | `AVCS - Intake - Barometric Multiplier Low - Intake Cam Target (TGV Closed) - 2018 - LF9C102P.csv` |
+
+## Description
+
+*Add description of what this table controls and when it's used.*
+
+## Axes
+
+### X-Axis
+
+- **Parameter**: AVCS - Intake - Target - Calculated Load
+- **Unit**: G_PER_REV
+- **Range**: 0.1290 to 3.0960
+- **Points**: 16
+
+### Y-Axis
+
+- **Parameter**: RPM
+- **Unit**: RPM
+- **Range**: 400.0000 to 8000.0000
+- **Points**: 20
+
+## Cell Values
+
+- **Unit**: DEGREES
+- **Data Type**: Float
+
+## Data Preview
+
+First 8x8 corner of the table:
+
+```
+       RPM |     0.1290 |     0.2580 |     0.3870 |     0.5160 |     0.6450 |     0.7740 |     0.9030 |     1.0320 |
+--------------------------------------------------------------------------------------------------------------------
+  400.0000 |   -10.0014 |   -11.0012 |   -13.0010 |   -11.0012 |    -6.0019 |     0.9999 |    10.0014 |    15.0007 |
+  800.0000 |   -10.0014 |   -11.0012 |   -13.0010 |   -11.0012 |    -6.0019 |     0.9999 |    10.0014 |    20.0027 |
+ 1200.0000 |   -13.0010 |   -13.0010 |   -16.0006 |   -11.0012 |    -0.9999 |     0.9999 |     2.9996 |    10.0014 |
+ 1600.0000 |   -15.0007 |   -16.0006 |   -20.0027 |   -12.0011 |    -2.9996 |     2.9996 |     0.9999 |     4.9993 |
+ 2000.0000 |   -15.0007 |   -15.0007 |   -20.0027 |   -10.0014 |     0.0000 |     0.0000 |     0.0000 |     0.0000 |
+ 2400.0000 |   -15.0007 |   -25.0021 |   -25.0021 |   -12.0011 |    -3.9995 |    -3.9995 |    -4.9993 |    -4.9993 |
+ 2800.0000 |   -14.0008 |   -14.0008 |   -17.0032 |   -17.0032 |   -12.0011 |   -11.0012 |   -11.0012 |   -10.0014 |
+ 3200.0000 |   -14.0008 |   -14.0008 |   -17.0032 |   -18.0030 |   -11.0012 |   -10.0014 |   -10.0014 |   -10.0014 |
+```
+
+## Functional Behavior
+
+*Add description of how the ECU interpolates and uses this table.*
+
+## Related Tables
+
+- TBD
+
+## Related Datalog Parameters
+
+- TBD
+
+## Tuning Notes
+
+*Add practical tuning guidance and typical modification patterns.*
+
+## Warnings
+
+*Add safety considerations and potential risks.*
+</pre>
+</body>
+</html>
