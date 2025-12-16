@@ -16,16 +16,33 @@
 
 ## Description
 
-*Add description of what this parameter controls.*
+Defines the low-end gear ratio calculation constant for 3rd gear at 3913.53 rev/mi. This value represents the lower bound of the 3rd gear detection window.
+
+The ECU uses the High/Low pair to identify when 3rd gear is engaged by comparing the calculated RPM/speed ratio against these bounds. Correct gear detection is essential for gear-specific boost, fuel, and timing strategies.
+
+**3rd Gear Characteristics:**
+- Versatile mid-range gear
+- Common for acceleration pulls and highway merging
+- Good balance of torque and speed
 
 ## Related Tables
 
-- TBD
+- **Transmission - Gear Ratios - 3rd - High**: Upper bound for 3rd gear
+- **Transmission - Gear Ratios - 1st-6th**: Complete gear ratio set
+- **Transmission - Vehicle Speed Scalar A/B**: Speed calculation
 
 ## Related Datalog Parameters
 
-- TBD
+- **Current Gear**: Gear detection output
+- **Engine RPM**: Calculation input
+- **Vehicle Speed (mph)**: Speed measurement
 
 ## Tuning Notes
 
-*Add tuning guidance.*
+**When to Modify:**
+- Transmission or final drive changes
+- Tire size modifications
+
+**Considerations:**
+- Must be lower than 3rd-High value
+- Ensure no overlap with 4th-High value

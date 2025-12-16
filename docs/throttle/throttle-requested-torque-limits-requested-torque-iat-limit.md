@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Limits maximum torque request based on Intake Air Temperature (IAT) and engine RPM. Hot intake air is less dense and more prone to knock, so this table reduces allowable torque when IAT rises to protect the engine.
+
+The table shows torque limits increasing with temperature up to a point (warmer air requires more throttle for same torque), then potentially decreasing at very high IAT as a protection measure. Cold air (-40 to 0°C) shows lower limits likely to prevent issues during cold start/warm-up, while normal operating temperatures (20-40°C) allow full torque.
+
+This table provides automatic derating during heat-soak conditions common in turbocharged vehicles, where intercooler efficiency drops and IAT rises significantly.
 
 ## Axes
 
@@ -55,20 +59,54 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using IAT and RPM:
+
+1. **IAT Monitoring**: ECU reads intake air temperature sensor
+2. **RPM Reading**: ECU monitors engine RPM
+3. **Table Lookup**: 2D interpolation determines maximum torque
+4. **Torque Limiting**: Requested torque capped at this value
+
+**Temperature Protection:**
+- Cold IAT: Limited torque during warm-up
+- Normal IAT (20-40°C): Full torque available
+- Hot IAT (50°C+): Torque progressively reduced
+- Extreme IAT (70°C+): Maximum derating applied
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Boost - IAT Compensation**: Boost target adjustment
+- **Airflow - Turbo - Wastegate - IAT Compensation**: Wastegate duty adjustment
+- **Ignition - IAT Compensation**: Timing adjustment for IAT
+- **Throttle - Requested Torque - Limits - Maximum A/B/C**: Other torque limits
 
 ## Related Datalog Parameters
 
-- TBD
+- **IAT (°C)**: Intake air temperature reading
+- **Requested Torque (Nm)**: Before IAT limiting
+- **Limited Torque (Nm)**: After all limits applied
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Understanding the Table:**
+- Cold columns show warm-up protection
+- Hot columns (50-70°C) show heat-soak protection
+- Values increase with RPM for higher RPM torque capability
+
+**Common Modifications:**
+- Increase hot IAT limits with upgraded intercooler
+- Adjust cold limits if experiencing cold weather drivability issues
+- May need reduction for aggressive turbo setups that heat-soak quickly
+
+**Considerations:**
+- This is primarily an engine protection table
+- Hot intake air increases knock tendency
+- Upgraded intercooler allows less conservative limits
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Hot IAT dramatically increases knock risk
+- Raising hot IAT limits without intercooler upgrades is dangerous
+- Heat-soak during traffic or hard driving can spike IAT rapidly
+- Always datalog IAT and knock during testing
+- Consider water-methanol injection for consistent IAT control

@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines target exhaust camshaft retard angles for HIGH barometric pressure (sea level to ~3000 ft) conditions when the Tumble Generator Valves (TGV) are CLOSED. This table is used during idle, light load, cold start, and cruise conditions at normal altitudes.
+
+When TGVs are closed, the intake runners are restricted to create tumble motion in the cylinders. This improves combustion efficiency and emissions at light loads. The exhaust cam strategy compensates with generally higher retard values to maintain adequate valve overlap.
+
+The data shows significantly higher retard values (25-50°) compared to TGV-open tables (10-30°), reflecting the need for more overlap when intake flow is restricted.
 
 ## Axes
 
@@ -55,20 +59,55 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on RPM and calculated load:
+
+1. **Barometric Check**: ECU determines barometric pressure is HIGH (normal altitude)
+2. **TGV Check**: TGVs are in CLOSED position
+3. **Table Lookup**: 2D interpolation for exhaust cam retard target
+4. **Compensation**: Additional modifiers applied
+5. **Command**: Final target sent to exhaust AVCS solenoid
+
+**TGV Closed Strategy:**
+- Higher retard values than TGV-open
+- Compensates for restricted intake flow
+- Optimizes internal EGR for emissions
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Exhaust Cam Target (TGV Open)**: TGV open variant
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target (TGV Closed)**: Altitude variant
+- **AVCS - Intake - Baro High - Intake Cam Target (TGV Closed)**: Companion intake table
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Commanded position
+- **AVCS Exhaust Actual (°)**: Measured position
+- **Barometric Pressure (kPa)**: Table selection
+- **TGV Position**: Closed state
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- TGV delete renders this table inactive
+- Critical for idle stability and emissions
+- Higher values than TGV-open are intentional
+
+**TGV Closed Strategy:**
+- More retard compensates for intake restriction
+- Maintains adequate scavenging despite reduced flow
+- Optimized for emissions and fuel economy
+
+**Considerations:**
+- This table active during emissions testing
+- Idle, cruise, and cold start depend on these values
+- Stock calibration optimized for emissions compliance
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- TGV-closed cells are emissions-critical
+- Changes can affect idle quality significantly
+- Cold start and warm-up depend on this table
+- If deleting TGVs, copy TGV-open values here
+- Don't reduce retard at idle without testing stability

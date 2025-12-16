@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the base (feedforward) wastegate duty cycle based on requested torque and RPM. This is the initial duty cycle the ECU commands to the wastegate solenoid before the PI controller makes closed-loop adjustments.
+
+The wastegate controls boost by bleeding exhaust pressure away from the turbine. Higher duty cycle = more wastegate closure = more exhaust to turbine = more boost. Lower duty cycle = wastegate opens = less boost.
+
+This table provides the "starting point" for boost control - if properly calibrated, it gets the wastegate close to the correct position immediately, allowing the PI controller to make only small corrections for fine-tuning. Values range from 0% (wastegate fully open, minimum boost) to higher percentages that hold the wastegate closed for target boost.
 
 ## Axes
 
@@ -55,20 +59,65 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using requested torque and RPM:
+
+1. **Torque/RPM Lookup**: ECU interpolates based on current torque request and RPM
+2. **Initial Duty Output**: This value becomes the base wastegate command
+3. **Compensation Applied**: IAT and barometric compensations modify the base
+4. **PI Correction Added**: Closed-loop PI controller adds/subtracts based on boost error
+5. **Final Duty**: Clamped to Wastegate Duty Maximum before output to solenoid
+
+**Total Wastegate Duty = Initial (this table) × Compensations + PI Correction**
+
+The table shows 0% at low torque requests (wastegate open, no boost needed) and increasing values at higher torque/RPM where boost is requested.
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Wastegate - Duty Maximum**: Upper limit for wastegate duty
+- **Airflow - Turbo - Wastegate - IAT Compensation**: Temperature-based duty adjustment
+- **Airflow - Turbo - Wastegate - Barometric Compensation**: Altitude adjustment
+- **Airflow - Turbo - Wastegate - PWM Frequency**: Solenoid control frequency
+- **Airflow - Turbo - Boost - Target Main**: The boost target this duty works to achieve
+- **Airflow - Turbo - PI Control**: Closed-loop corrections added to initial duty
 
 ## Related Datalog Parameters
 
-- TBD
+- **Wastegate Duty (%)**: Final commanded duty cycle
+- **Wastegate Initial Duty (%)**: Output from this table specifically
+- **Target Boost**: What the duty is trying to achieve
+- **Actual Boost**: Measured manifold pressure
+- **Requested Torque (Nm)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Purpose of Initial Duty:**
+- Good initial duty = faster boost response, less PI correction needed
+- Poor initial duty = sluggish boost, PI controller works harder, potential overshoot
+
+**Common Modifications:**
+- Increase values for larger turbo that needs more duty to spool
+- Decrease values if experiencing boost overshoot
+- Adjust curve shape to match turbo's efficiency characteristics
+- Fine-tune for smoother boost buildup
+
+**Tuning Strategy:**
+1. Set PI gains to zero temporarily
+2. Adjust this table until boost roughly matches target (open-loop)
+3. Re-enable PI control for fine-tuning
+4. Iterate between initial duty and PI gains for optimal response
+
+**Larger Turbo Considerations:**
+- May need higher initial duty across the board
+- Response at low RPM is critical for spool characteristics
+- May need to extend table values beyond stock range
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Excessive initial duty can cause dangerous boost spikes before PI can correct
+- Too low initial duty causes sluggish boost response
+- Always verify boost stays within safe limits during testing
+- Monitor for boost creep (boost rising when it shouldn't)
+- Ensure Maximum Duty table is properly configured as safety limit
+- Test across full RPM range - behavior varies with exhaust flow
+- Hot weather and high altitude require lower effective duty (compensations handle this)

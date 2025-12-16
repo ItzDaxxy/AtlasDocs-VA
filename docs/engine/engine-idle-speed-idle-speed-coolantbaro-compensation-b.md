@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Provides secondary RPM compensation to idle speed targets based on both barometric pressure (altitude) and coolant temperature. This table works alongside Compensation A to provide additional altitude-based idle adjustments. The ECU may use this table under different operating conditions or as a secondary modifier.
+
+At high altitude (low barometric pressure), reduced air density affects combustion stability, potentially requiring higher idle RPM. The stock table shows all zero values, indicating no compensation is applied in the factory calibration. This provides a framework for tuners to add altitude-based idle adjustments if needed for specific conditions.
 
 ## Axes
 
@@ -55,20 +57,47 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using barometric pressure and coolant temperature:
+
+1. **Barometric Reading**: ECU reads atmospheric pressure from barometric sensor
+2. **Temperature Reading**: ECU reads coolant temperature
+3. **Table Lookup**: 2D interpolation finds compensation value
+4. **Application**: Compensation value added to base idle target
+
+**Final Idle Target = Base Target + Compensation A + Compensation B**
+
+Stock values are all 0.0, meaning no compensation is applied.
 
 ## Related Tables
 
-- TBD
+- **Engine - Idle Speed - Target A-J**: Base idle targets this compensates
+- **Engine - Idle Speed - Coolant/Baro Compensation A**: Primary compensation table
+- **Sensors - Barometric Pressure**: Source for X-axis input
 
 ## Related Datalog Parameters
 
-- TBD
+- **Barometric Pressure (kPa/Pa)**: X-axis input
+- **Coolant Temperature (°C)**: Y-axis input
+- **Target Idle RPM**: Final commanded idle
+- **Altitude (calculated)**: Derived from barometric pressure
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Stock Behavior**: All zeros - no altitude compensation applied
+
+**When to Add Compensation:**
+- Vehicle frequently operates at high altitude
+- Experiencing rough idle or stalling at elevation
+- Table A alone doesn't provide sufficient correction
+
+**Typical Modifications:**
+- Add +25-50 RPM at low barometric pressures (high altitude)
+- Greater compensation at cold temperatures
+- Use if different compensation needed for different conditions
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Large compensations cause noticeable idle changes when altitude changes
+- Test at various altitudes to verify appropriate compensation
+- Excessive compensation at high altitude wastes fuel
+- Consider fuel and ignition altitude compensations as well

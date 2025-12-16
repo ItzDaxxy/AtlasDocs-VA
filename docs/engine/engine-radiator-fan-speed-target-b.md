@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the target fan speed (PWM duty cycle) based on coolant temperature for operating condition B. This table provides progressive fan speed control, allowing variable fan speeds rather than simple on/off operation. The PWM signal controls the fan motor speed, with higher percentages commanding faster fan rotation.
+
+Table B may be used under specific conditions such as A/C operation or different vehicle speed ranges. Multiple fan speed tables (A, B, C) allow the ECU to optimize cooling fan behavior across different operating scenarios.
 
 ## Axes
 
@@ -45,20 +47,42 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using coolant temperature:
+
+1. **Temperature Reading**: ECU monitors coolant temperature sensor
+2. **Condition Check**: ECU determines if Table B conditions are active
+3. **Table Lookup**: Interpolates between temperature breakpoints for duty cycle
+4. **PWM Output**: Duty cycle commands fan motor speed
+
+Higher temperature = higher duty cycle = faster fan speed. The table spans 94-102°C, the critical range for cooling decisions.
 
 ## Related Tables
 
-- TBD
+- **Engine - Radiator - Fan Speed Target A/C**: Other fan speed tables
+- **Engine - Radiator - Fan 1/2 - Coolant Threshold A-E**: Activation thresholds
 
 ## Related Datalog Parameters
 
-- TBD
+- **Coolant Temperature (°C)**: X-axis input for table lookup
+- **Radiator Fan Duty (%)**: Output from this table
+- **Radiator Fan Status**: On/Off state
+- **Vehicle Speed**: May affect table selection
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Increase duty at lower temperatures for more aggressive cooling
+- Raise maximum duty for improved high-temp cooling
+- Smooth curve for quieter fan operation
+
+**Considerations:**
+- Higher duty = more noise and electrical load
+- Coordinate changes across A, B, and C tables
+- Consider fan motor limitations (continuous 100% may reduce lifespan)
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Insufficient fan speed at high temps risks overheating
+- Excessive fan speed increases noise and wear
+- Ensure electrical system can handle sustained high duty cycles
+- Test in hot conditions to verify adequate cooling

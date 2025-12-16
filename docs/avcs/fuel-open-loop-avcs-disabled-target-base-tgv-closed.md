@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines open-loop fuel targets (AFR equivalence ratio) for conditions when AVCS is DISABLED AND TGVs are CLOSED. AVCS may be disabled during cold start, warm-up, or when AVCS system faults are present.
+
+Values are in AFR Equivalence Ratio where 1.0 = stoichiometric (14.7:1 AFR). The table shows similar values to the AVCS-enabled TGV-closed table, indicating fueling strategy is consistent regardless of AVCS status for these operating conditions.
+
+AVCS-disabled conditions typically occur during cold start before oil pressure is sufficient to actuate the AVCS solenoids, or if the AVCS system has detected a fault.
 
 ## Axes
 
@@ -55,20 +59,50 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on calculated load and RPM:
+
+1. **AVCS Check**: AVCS system is DISABLED (cold start or fault)
+2. **TGV Check**: TGVs are in CLOSED position
+3. **Table Selection**: Use this AVCS-disabled TGV-closed fuel map
+4. **Target Lookup**: 2D interpolation for target AFR equivalence
+5. **Fueling**: Injector pulse width calculated to achieve target
+
+**AVCS Disabled Conditions:**
+- Cold start (insufficient oil pressure)
+- AVCS system fault codes present
+- Warm-up period before AVCS activation
+- Cams at default (0°) position
 
 ## Related Tables
 
-- TBD
+- **Fuel - Open Loop - AVCS Enabled - Target Base (TGV Closed)**: AVCS enabled variant
+- **Fuel - Open Loop - AVCS Disabled - Target Base (TGV Open)**: TGV open variant
+- **Ignition - Primary - AVCS Disabled - TGV Closed**: Companion timing table
 
 ## Related Datalog Parameters
 
-- TBD
+- **Target AFR**: Output from this table
+- **Actual AFR**: Measured via wideband
+- **AVCS Status**: Disabled for this table
+- **TGV Position**: Closed for this table
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**AVCS Disabled Strategy:**
+- Used during cold start warm-up
+- Cams at default position (no advance/retard)
+- Fueling compensates for fixed cam timing
+
+**Cold Start Considerations:**
+- AVCS typically enables after ~30-60 seconds
+- Oil pressure required for AVCS actuation
+- Fueling must work without cam timing benefits
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Affects cold start fueling
+- AVCS disabled limits engine efficiency
+- Check AVCS status if table always active
+- AVCS fault codes require diagnosis
+- Cold weather extends AVCS-disabled period

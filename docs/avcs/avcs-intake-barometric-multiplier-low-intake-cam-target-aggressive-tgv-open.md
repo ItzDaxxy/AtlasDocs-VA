@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the "aggressive" intake camshaft advance targets for LOW barometric pressure (high altitude) conditions when TGVs are open. This table represents a performance-oriented intake cam strategy for altitude operation.
+
+The data shows consistently positive values (10-25°) indicating intake cam advance across most of the operating range. This aggressive advance strategy aims to maximize overlap with exhaust cam retard for improved scavenging and power at altitude.
+
+The aggressive altitude table is used when the ECU selects aggressive AVCS mode while operating at higher elevations.
 
 ## Axes
 
@@ -55,20 +59,49 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on RPM and calculated load:
+
+1. **Mode Selection**: ECU determines aggressive AVCS mode is active
+2. **Barometric Check**: Low barometric pressure (high altitude)
+3. **TGV Check**: TGVs are OPEN
+4. **Table Lookup**: 2D interpolation for intake cam target
+5. **Output**: Target sent to intake AVCS solenoid
+
+**Aggressive Altitude Strategy:**
+- Performance-focused cam timing at elevation
+- Consistent advance values (10-25°)
+- Maximizes overlap with exhaust cam
 
 ## Related Tables
 
-- TBD
+- **AVCS - Intake - Baro High - Intake Cam Target Aggressive (TGV Open)**: Sea level variant
+- **AVCS - Intake - Baro Low - Intake Cam Target (TGV Open)**: Standard altitude table
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target Aggressive (TGV Open)**: Companion exhaust
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Intake Target (°)**: Commanded position
+- **AVCS Intake Actual (°)**: Measured position
+- **Barometric Pressure (kPa)**: Altitude determination
+- **AVCS Mode**: Aggressive mode selection
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Aggressive Strategy at Altitude:**
+- Consistent 10-25° advance across range
+- More aggressive than standard altitude table
+- Optimized for power over emissions/economy
+
+**Altitude Performance:**
+- Different scavenging at altitude
+- Turbo behavior changes in thin air
+- Aggressive overlap may not suit all conditions
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Aggressive mode at altitude demanding on engine
+- Test at actual altitude conditions
+- Monitor knock activity carefully
+- Coordinate with exhaust cam aggressive table
+- May not be optimal for all altitude conditions

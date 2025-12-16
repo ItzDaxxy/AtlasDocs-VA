@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Provides altitude-specific compensation for exhaust cam retard at LOW barometric pressure (high altitude) when TGVs are CLOSED. This table is used during idle, light load, and cruise conditions at high altitude.
+
+The data shows all zeros, indicating no additional altitude compensation is applied for TGV-closed exhaust cam timing. The base altitude target table handles all necessary adjustments for these operating conditions.
+
+Unlike the TGV-open compensation table which has active negative values, TGV-closed operation uses only base target values at altitude.
 
 ## Axes
 
@@ -55,20 +59,50 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU uses this as a compensation adder (currently inactive):
+
+1. **Base Target**: ECU gets exhaust cam target from TGV-closed altitude table
+2. **Compensation Lookup**: This table provides offset (all zeros)
+3. **Result**: Base target used without modification
+
+**Stock Calibration:**
+- All values are 0.0 - no compensation applied
+- TGV-closed altitude base table is sufficient
+- Available for aftermarket tuning
+
+**Contrast with TGV-Open:**
+- TGV-open altitude compensation has active negative values
+- TGV-closed does not require additional compensation
+- Different optimization strategy for each TGV state
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target (TGV Closed)**: Base target
+- **AVCS - Exhaust - Baro Low - Compensation (TGV Open)**: Active altitude compensation
+- **AVCS - Exhaust - Baro High - Compensation (TGV Closed)**: Sea level variant
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Final target (same as base)
+- **TGV Position**: Closed for this table
+- **Barometric Pressure (kPa)**: Low/altitude condition
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Stock Values:**
+- All zeros - no additional compensation
+- TGV-closed base table handles altitude needs
+- Available for custom tuning if needed
+
+**TGV-Closed at Altitude:**
+- Idle and cruise at altitude
+- Base table already optimized
+- Compensation available for fine-tuning
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Changes affect altitude TGV-closed operation
+- Idle quality at altitude sensitive
+- Test at actual altitude conditions
+- Coordinate with other altitude tables

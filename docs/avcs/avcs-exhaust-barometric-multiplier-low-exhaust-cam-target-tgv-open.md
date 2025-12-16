@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines target exhaust camshaft retard angles for LOW barometric pressure (high altitude, ~3000+ ft) conditions when the Tumble Generator Valves (TGV) are open. This is the altitude-compensated version of the exhaust cam target table.
+
+At higher altitudes, reduced air density affects combustion characteristics and turbo behavior. This table provides modified exhaust cam targets optimized for these conditions. The lower values compared to the high-barometric table reflect the reduced need for aggressive scavenging when air density is lower.
+
+Exhaust cam retard delays exhaust valve closing, creating more overlap with intake valve opening. This affects scavenging, internal EGR, and turbo spool characteristics - all of which behave differently at altitude.
 
 ## Axes
 
@@ -55,20 +59,56 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on RPM and calculated load:
+
+1. **Barometric Check**: ECU determines barometric pressure is LOW (high altitude)
+2. **TGV Check**: TGVs are in OPEN position
+3. **Table Lookup**: 2D interpolation for exhaust cam retard target
+4. **Compensation**: Additional modifiers applied (temperature, etc.)
+5. **Command**: Final target sent to exhaust AVCS solenoid
+
+**Altitude Effects:**
+- Lower air density = different scavenging dynamics
+- Turbo works harder to achieve same boost
+- Exhaust cam strategy adjusted accordingly
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Exhaust Cam Target (TGV Open)**: Sea level equivalent
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target (TGV Closed)**: TGV closed variant
+- **AVCS - Intake - Baro Low - Intake Cam Target**: Companion intake table
+- **AVCS - Exhaust - Retard Compensation**: Additional adjustments
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Commanded position
+- **AVCS Exhaust Actual (°)**: Measured position
+- **Barometric Pressure (kPa)**: Table selection
+- **TGV Position**: Open/closed state
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- May need adjustment for altitude-frequent drivers
+- Coordinate with intake cam altitude tables
+- Less aggressive than sea level tables typically
+
+**Altitude Considerations:**
+- Lower air density changes optimal valve events
+- Turbo requires different exhaust energy management
+- Stock calibration already compensates for altitude
+
+**Adjustment Guidelines:**
+- Changes of 2-5 degrees incremental
+- Test at actual altitude conditions if possible
+- Monitor AVCS tracking and knock activity
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Coordinate exhaust and intake cam timing changes
+- Altitude-specific tuning requires altitude testing
+- Don't assume sea level values work at altitude
+- Monitor turbo spool and boost response after changes
+- Excessive overlap at altitude can hurt performance

@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Applies a volumetric efficiency (VE) correction factor when the Tumble Generator Valves (TGVs) are in the OPEN position. TGVs are butterfly valves in the intake runners that modify airflow characteristics for emissions and combustion efficiency.
+
+When TGVs are open, the intake runners have maximum cross-sectional area, providing the highest flow capacity. This table compensates for the specific airflow behavior with TGVs open, which occurs during higher load and RPM conditions where maximum airflow is needed.
+
+Values are in PERCENT representing the VE under TGV-open conditions. The ECU selects between TGV-open and TGV-closed VE tables based on the current TGV position.
 
 ## Axes
 
@@ -55,20 +59,57 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using MAP and RPM when TGVs are open:
+
+1. **TGV State Check**: ECU determines TGV position
+2. **If TGVs Open**: Use this table
+3. **Table Lookup**: 2D interpolation for VE percentage
+4. **Airflow Correction**: Applied to MAF reading
+
+**TGV Operation:**
+- TGVs OPEN: Maximum flow, used at higher loads
+- TGVs CLOSED: Restricted flow, creates tumble for emissions
+- ECU controls TGV position based on operating conditions
+
+**Typical TGV-Open Conditions:**
+- Higher RPM (above ~2500-3500 RPM)
+- Higher load/throttle position
+- Boost conditions
 
 ## Related Tables
 
-- TBD
+- **Airflow - MAF - MAF VE Correction (TGV Closed) A**: VE when TGVs closed
+- **Airflow - MAF - MAF VE Correction B**: Alternative VE table
+- **AVCS - TGV Control**: TGV position control
+- **Fuel - Target AFR**: Uses corrected airflow
 
 ## Related Datalog Parameters
 
-- TBD
+- **MAP (PSI/kPa)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **TGV Position**: Determines table selection
+- **MAF (g/s)**: Input to be corrected
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- TGV delete requires recalibration
+- Intake modifications need TGV-open VE adjustment
+- This table used for most high-load operation
+
+**TGV Delete Tuning:**
+- With TGVs deleted, this table used exclusively
+- Copy to TGV-closed table or blend tables
+- Ensure consistent VE across operating range
+
+**Considerations:**
+- TGV-open represents maximum intake flow potential
+- Values typically higher than TGV-closed at same MAP/RPM
+- Critical for full-load fueling accuracy
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Incorrect VE causes AFR errors at high load
+- TGV delete requires comprehensive retuning
+- Lean conditions at boost are engine-damaging
+- Verify AFR across full operating range after changes

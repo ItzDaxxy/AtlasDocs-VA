@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the maximum allowable torque request based on engine RPM for operating condition B. This table provides an alternate set of torque limits used under specific conditions, potentially when additional safety margin is required.
+
+Maximum B may apply during conditions like reduced traction situations, specific gear operation, or temperature-related derating. The ECU selects between Maximum A, B, and C tables based on operating state.
 
 ## Axes
 
@@ -45,20 +47,38 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using engine RPM:
+
+1. **RPM Reading**: ECU monitors current engine RPM
+2. **Condition Check**: ECU determines if Maximum B conditions apply
+3. **Table Lookup**: Interpolates maximum torque for current RPM
+4. **Torque Limiting**: Requested torque capped at this value
 
 ## Related Tables
 
-- TBD
+- **Throttle - Requested Torque - Limits - Maximum A/C**: Other maximum torque tables
+- **Throttle - Requested Torque - In-Gear/Out-of-Gear**: Base torque request tables
+- **Throttle - Target Throttle - Main**: Torque to throttle conversion
 
 ## Related Datalog Parameters
 
-- TBD
+- **Requested Torque (Nm)**: Driver's torque demand
+- **Limited Torque (Nm)**: Final capped torque
+- **Engine RPM**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Coordinate changes with Maximum A and C tables
+- Ensure consistency across all maximum tables
+- Match to actual engine capability
+
+**Considerations:**
+- May be more conservative than Maximum A for protection
+- Changes should match drivetrain limits
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Torque limits protect drivetrain components
+- Excessive limits risk mechanical damage
+- Test carefully in all operating conditions

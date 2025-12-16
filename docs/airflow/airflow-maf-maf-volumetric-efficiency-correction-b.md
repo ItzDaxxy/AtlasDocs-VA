@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Applies a volumetric efficiency (VE) correction factor to the calculated airflow based on manifold pressure and RPM. This table compensates for the difference between theoretical airflow (based on MAF sensor reading) and actual cylinder filling efficiency.
+
+Values are in PERCENT representing the VE - how efficiently the engine fills its cylinders. At low MAP (vacuum), VE is lower due to throttling losses. At higher MAP (boost), VE can exceed 100% due to forced induction. The FA20DIT typically shows VE values from ~55% at low load/idle to 85%+ at high boost.
+
+This is one of multiple VE correction tables - "B" variant may be used under specific operating conditions or as an alternative calibration.
 
 ## Axes
 
@@ -55,20 +59,58 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using MAP and RPM:
+
+1. **Inputs**: Manifold Absolute Pressure (PSI), Engine RPM
+2. **Table Lookup**: 2D interpolation for VE percentage
+3. **Airflow Correction**: Calculated Mass = MAF × (VE/100)
+
+**VE Calculation Purpose:**
+```
+Corrected Airflow = MAF Reading × VE Correction Factor
+```
+
+**VE Patterns:**
+- Low MAP + Low RPM: Lower VE (~55-65%)
+- High MAP + Mid RPM: Higher VE (~80-85%)
+- Boost conditions: VE can exceed 100%
 
 ## Related Tables
 
-- TBD
+- **Airflow - MAF - MAF VE Correction (TGV Open) A**: TGV-specific VE
+- **Airflow - MAF - MAF VE Correction (TGV Closed) A**: TGV closed VE
+- **Sensors - Mass Airflow**: MAF sensor calibration
+- **Fuel - Target AFR**: Uses corrected airflow for fueling
 
 ## Related Datalog Parameters
 
-- TBD
+- **MAP (PSI/kPa)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **MAF (g/s)**: Raw MAF sensor reading
+- **Calculated Load**: Derived from corrected airflow
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Adjust for intake modifications that change airflow characteristics
+- Tune alongside fuel trims to achieve stoichiometric at cruise
+- Required recalibration with intake/turbo upgrades
+
+**VE Tuning Process:**
+1. Log fuel trims at various MAP/RPM points
+2. Adjust VE to bring trims toward zero
+3. Positive trim = increase VE, Negative trim = decrease VE
+4. Iterate until trims are within ±5%
+
+**Considerations:**
+- VE affects both fueling and load calculation
+- Incorrect VE causes consistent AFR errors
+- VE changes with intake/exhaust modifications
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Incorrect VE causes lean or rich conditions
+- Lean conditions at high boost are extremely dangerous
+- Always verify AFR after VE modifications
+- VE should be tuned at steady-state conditions
+- Monitor knock when increasing VE values

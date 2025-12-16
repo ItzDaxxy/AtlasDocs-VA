@@ -16,16 +16,34 @@
 
 ## Description
 
-*Add description of what this parameter controls.*
+Defines the high-end gear ratio calculation constant for 4th gear at 3913.53 rev/mi. This value sets the upper bound for 4th gear detection in the ECU's gear identification logic.
+
+**4th Gear Stock Ratios:**
+- Transmission ratio: 1.088:1
+- Final drive: 4.11:1
+- Combined effective ratio: ~4.47:1
+
+4th gear is close to 1:1 ratio, providing efficient cruising with good acceleration available when needed. Commonly used in 50-90 mph range.
 
 ## Related Tables
 
-- TBD
+- **Transmission - Gear Ratios - 4th - Low**: Lower bound for 4th gear
+- **Transmission - Gear Ratios - 1st-6th**: Complete gear ratio set
+- **Transmission - Vehicle Speed Scalar A/B**: Speed calculation constants
 
 ## Related Datalog Parameters
 
-- TBD
+- **Current Gear**: Calculated gear indicator
+- **Engine RPM**: Calculation input
+- **Vehicle Speed (mph)**: Calculated speed
 
 ## Tuning Notes
 
-*Add tuning guidance.*
+**When to Modify:**
+- Transmission swap or gear change
+- Final drive modification
+- Tire size change
+
+**Considerations:**
+- High/Low bracket must contain actual 4th gear ratio
+- Affects gear-dependent tuning strategies

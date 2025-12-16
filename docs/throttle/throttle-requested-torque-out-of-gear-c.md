@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines an alternate torque request map for out-of-gear operation (variant C). This table converts accelerator pedal position and RPM into torque request when the clutch is depressed or the transmission is in neutral.
+
+Table C may be used under specific ECU-determined conditions. Multiple out-of-gear tables (Main, A, C, D) allow optimization for different operating scenarios such as temperature, driving mode, or system state.
 
 ## Axes
 
@@ -55,20 +57,40 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using accelerator position and RPM:
+
+1. **Out-of-Gear Detection**: ECU detects clutch or neutral state
+2. **Condition Check**: ECU determines if Table C conditions apply
+3. **Pedal/RPM Reading**: ECU reads accelerator and RPM
+4. **Table Lookup**: 2D interpolation for torque request
+5. **Throttle Control**: Torque converted to throttle position
 
 ## Related Tables
 
-- TBD
+- **Throttle - Requested Torque - Out-of-Gear Main/A/D**: Other out-of-gear tables
+- **Throttle - Requested Torque - In-Gear**: In-gear torque mapping
+- **Throttle - Target Throttle - Main**: Torque to throttle conversion
 
 ## Related Datalog Parameters
 
-- TBD
+- **Accelerator Position (%)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **Clutch Switch**: Out-of-gear detection
+- **Requested Torque (Nm)**: Table output
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Coordinate with Main and other out-of-gear tables
+- Adjust for consistent throttle feel across conditions
+- Match to driver preference for rev-matching
+
+**Considerations:**
+- Changes should be consistent across all out-of-gear tables
+- Test under conditions that activate this specific table
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Excessive values cause unpredictable throttle response
+- Coordinate with in-gear tables for smooth transitions
+- Test during actual gear changes

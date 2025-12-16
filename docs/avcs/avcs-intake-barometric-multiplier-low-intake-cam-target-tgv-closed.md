@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines target intake camshaft advance angles for LOW barometric pressure (high altitude) conditions when the Tumble Generator Valves (TGV) are CLOSED. This table controls intake cam timing during idle, light load, and cruise conditions at higher altitudes.
+
+Intake cam advance moves the intake camshaft timing earlier relative to the crankshaft. The data shows a mix of negative values (retard from base position) and positive values (advance from base position), reflecting the complex optimization required for TGV-closed operation where tumble is being generated.
+
+When TGVs are closed, the intake runners are restricted. The intake cam strategy must complement this - often with less aggressive advance to maintain good combustion stability with the tumbling charge motion.
 
 ## Axes
 
@@ -55,20 +59,50 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on RPM and calculated load:
+
+1. **Barometric Check**: ECU determines barometric pressure is LOW (high altitude)
+2. **TGV Check**: TGVs are in CLOSED position
+3. **Table Lookup**: 2D interpolation for intake cam target
+4. **Coordination**: Exhaust cam target also determined
+5. **Command**: Target sent to intake AVCS solenoid
+
+**TGV Closed at Altitude:**
+- Idle and cruise conditions at elevation
+- Tumble generation with restricted runners
+- Intake cam strategy optimized for stability
 
 ## Related Tables
 
-- TBD
+- **AVCS - Intake - Baro High - Intake Cam Target (TGV Closed)**: Sea level variant
+- **AVCS - Intake - Baro Low - Intake Cam Target (TGV Open)**: TGV open variant
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target (TGV Closed)**: Companion exhaust table
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Intake Target (°)**: Commanded position
+- **AVCS Intake Actual (°)**: Measured position
+- **Barometric Pressure (kPa)**: Table selection
+- **TGV Position**: Closed for this table
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**TGV Closed Strategy:**
+- Values often more conservative than TGV-open
+- Negative values (retard) common at low loads
+- Positive values (advance) at higher loads
+- Optimized for combustion stability with tumble
+
+**Altitude Considerations:**
+- Different air density affects optimal timing
+- Stock calibration already altitude-compensated
+- May need adjustment for altitude-frequent drivers
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- TGV-closed affects emissions and idle quality
+- Changes impact cold start behavior
+- Coordinate with exhaust cam at altitude
+- Test at actual altitude conditions
+- Don't assume sea level values work at altitude

@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the "aggressive" exhaust camshaft retard targets for high barometric pressure (sea level) conditions when TGVs are open. This table represents a more performance-oriented cam timing strategy compared to the standard target table.
+
+The aggressive table may be selected during certain driving modes or conditions where the ECU determines more aggressive valve timing is appropriate. The data shows relatively conservative values (mostly 10-15°), suggesting this table may blend with or modify the base target rather than replace it entirely.
+
+Exhaust cam retard controls valve overlap timing - more retard creates more overlap with intake valves, affecting scavenging, turbo spool, and internal EGR.
 
 ## Axes
 
@@ -55,20 +59,55 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on RPM and calculated load:
+
+1. **Mode Selection**: ECU determines aggressive AVCS mode is active
+2. **Barometric Check**: High barometric pressure confirmed
+3. **TGV Check**: TGVs are OPEN
+4. **Table Lookup**: 2D interpolation for exhaust cam target
+5. **Output**: Target sent to exhaust AVCS solenoid
+
+**Aggressive Mode Characteristics:**
+- May activate during sport mode or aggressive throttle
+- Potentially optimized for performance over emissions
+- Coordinates with aggressive intake cam table
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Exhaust Cam Target (TGV Open)**: Standard target table
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target Aggressive (TGV Open)**: Altitude variant
+- **AVCS - Intake - Baro High - Intake Cam Target Aggressive (TGV Open)**: Companion intake table
+- **AVCS - Exhaust - Retard Compensation**: Additional modifiers
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Commanded position
+- **AVCS Exhaust Actual (°)**: Measured position
+- **AVCS Mode**: Standard vs aggressive selection
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- May increase retard for improved turbo spool
+- Coordinate with intake cam aggressive table
+- Test impact on emissions and driveability
+
+**Aggressive Strategy:**
+- Performance-focused valve timing
+- May sacrifice some emissions for power
+- Typically more overlap than standard table
+
+**Considerations:**
+- Stock values appear relatively conservative
+- May be room for more aggressive timing
+- Always test knock activity after changes
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Aggressive cam timing can increase knock risk
+- Coordinate exhaust and intake cam changes
+- Monitor emissions if vehicle is tested
+- Test across full RPM/load range
+- Don't assume more retard is always better

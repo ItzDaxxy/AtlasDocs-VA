@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines target idle RPM based on coolant temperature for operating condition G. This is one of multiple idle speed target tables (A through J) used by the ECU to determine desired idle speed under various operating conditions. The ECU selects among these tables based on combinations of A/C compressor state, transmission position, electrical load status, and other parameters.
+
+Table G corresponds to a specific combination of operating conditions. Each table provides a temperature-based idle RPM curve, with higher RPM at cold temperatures and lower RPM when fully warmed.
 
 ## Axes
 
@@ -45,20 +47,40 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using coolant temperature:
+
+1. **Condition Check**: ECU determines if Table G conditions are active
+2. **Temperature Reading**: ECU reads coolant temperature from ECT sensor
+3. **Table Lookup**: Interpolates between temperature breakpoints for target RPM
+4. **Idle Control**: Electronic throttle adjusted to achieve target RPM
 
 ## Related Tables
 
-- TBD
+- **Engine - Idle Speed - Target A-F, H-J**: Other idle target tables
+- **Engine - Idle Speed - Coolant/Baro Compensation A/B**: Altitude adjustments
+- **Throttle - Idle Control**: Throttle position control
 
 ## Related Datalog Parameters
 
-- TBD
+- **Target Idle RPM**: Commanded idle speed
+- **Actual RPM**: Measured engine speed
+- **Coolant Temperature (°C)**: X-axis input
+- **A/C Clutch Status**: Affects table selection
+- **Transmission Position**: Affects table selection
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Increase values if idle is unstable under this condition
+- Adjust cold temperature values for smoother warm-up
+- Maintain consistency with other idle tables
+
+**Considerations:**
+- Coordinate changes across all idle tables
+- Test under specific conditions that activate this table
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Inconsistent values between tables cause idle hunting
+- Too low may cause stalling; too high wastes fuel
+- Test all operating conditions after changes

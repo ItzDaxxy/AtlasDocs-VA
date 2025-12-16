@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines an alternate torque request map for out-of-gear operation (variant D). This table converts accelerator pedal position and RPM into torque request when the clutch is depressed or the transmission is in neutral.
+
+Table D shows notably lower torque values across most of the table compared to Main/A/C variants, suggesting it may be used for specific conditions requiring reduced throttle response, such as limp mode, cold start, or certain diagnostic states.
 
 ## Axes
 
@@ -55,20 +57,45 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using accelerator position and RPM:
+
+1. **Out-of-Gear Detection**: ECU detects clutch or neutral state
+2. **Condition Check**: ECU determines if Table D conditions apply
+3. **Pedal/RPM Reading**: ECU reads accelerator and RPM
+4. **Table Lookup**: 2D interpolation for torque request
+5. **Throttle Control**: Torque converted to throttle position
+
+**Notable Characteristics:**
+- Lower values than other out-of-gear tables
+- May be used for reduced-response conditions
+- Conservative mapping for safety scenarios
 
 ## Related Tables
 
-- TBD
+- **Throttle - Requested Torque - Out-of-Gear Main/A/C**: Other out-of-gear tables
+- **Throttle - Requested Torque - In-Gear**: In-gear torque mapping
+- **Throttle - Target Throttle - Main**: Torque to throttle conversion
 
 ## Related Datalog Parameters
 
-- TBD
+- **Accelerator Position (%)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **Clutch Switch**: Out-of-gear detection
+- **Requested Torque (Nm)**: Table output
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Generally not modified as it's likely a fallback/safety table
+- May need adjustment if other out-of-gear tables are modified
+- Understand activation conditions before changing
+
+**Considerations:**
+- Lower values suggest conservative/safety-oriented table
+- May activate during fault conditions
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Modifying safety-oriented tables can create dangerous conditions
+- Understand why this table activates before changing values
+- Test thoroughly in all operating conditions

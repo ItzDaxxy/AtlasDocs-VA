@@ -13,7 +13,14 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the maximum allowable boost pressure (safety limit) based on engine RPM. This table sets an absolute ceiling for manifold pressure that the ECU will not allow the boost control system to exceed, regardless of what the Target Boost table requests.
+
+Values are in BAR (gauge pressure). The Boost Limit acts as the final safety check in the boost control system, protecting the engine from dangerous over-boost conditions that could cause mechanical failure.
+
+**Boost Control Hierarchy:**
+1. Boost Target (what you want)
+2. Boost Limit (what you're allowed) - this table
+3. Actual boost is MIN(Target, Limit)
 
 ## Axes
 
@@ -45,20 +52,47 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using engine RPM:
+
+1. **RPM Reading**: ECU monitors current engine RPM
+2. **Table Lookup**: Interpolates maximum allowable boost
+3. **Limit Application**: Final target = MIN(Target Boost, Boost Limit)
+4. **Protection Active**: If boost approaches limit, wastegate opens
+
+**Safety Override:**
+The ECU will actively reduce boost (open wastegate, reduce timing, cut fuel) if actual boost exceeds this limit.
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Boost - Boost Target Main**: Desired boost (limited by this table)
+- **Airflow - Turbo - Wastegate - Duty Initial/Maximum**: Wastegate control
+- **Airflow - Turbo - PI Control**: Closed-loop boost control
 
 ## Related Datalog Parameters
 
-- TBD
+- **Boost Limit (bar/psi)**: Output from this table
+- **Target Boost**: May be limited by this value
+- **Actual Boost**: Measured manifold pressure
+- **Engine RPM**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Increase limits for higher boost targets on modified engines
+- Must be higher than Target Boost tables for targets to be achieved
+- Should match hardware capability (turbo, head gasket, internals)
+
+**Considerations:**
+- This is a safety limit - always maintain margin above targets
+- Set 10-15% above target boost for control headroom
+- Consider altitude effects on achievable boost
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- **CRITICAL SAFETY TABLE**: Setting too high removes protection
+- Excessive boost causes catastrophic engine failure
+- Head gasket failure common at high boost
+- Rod failure and ringland failure possible
+- Always verify engine internals support requested boost levels
+- Never exceed turbo compressor map limits
+- Monitor knock closely when raising boost limits

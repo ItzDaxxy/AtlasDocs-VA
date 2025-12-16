@@ -16,16 +16,34 @@
 
 ## Description
 
-*Add description of what this parameter controls.*
+Defines the PWM (Pulse Width Modulation) frequency for the wastegate boost control solenoid. At 10 Hz, the solenoid cycles on/off 10 times per second, with the duty cycle (0-100%) determining what percentage of each cycle the solenoid is energized.
+
+Higher frequencies provide smoother control but may exceed solenoid response capability. Lower frequencies can cause audible clicking and less precise control. 10 Hz is a common balance point for OEM wastegate solenoids.
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Wastegate - Duty Initial**: Duty cycle commanded at this frequency
+- **Airflow - Turbo - Wastegate - Duty Maximum**: Maximum duty allowed
+- **Airflow - Turbo - PI Control**: Closed-loop duty adjustments
 
 ## Related Datalog Parameters
 
-- TBD
+- **Wastegate Duty (%)**: Duty cycle at this PWM frequency
+- **Wastegate Solenoid State**: Actual solenoid actuation
 
 ## Tuning Notes
 
-*Add tuning guidance.*
+**Common Modifications:**
+- Generally not modified for stock solenoid
+- Aftermarket boost controllers may prefer different frequencies
+- Some upgraded solenoids support higher frequencies
+
+**Typical Frequency Ranges:**
+- Stock solenoid: 10-20 Hz
+- Performance solenoids: 20-40 Hz
+- MAC-type solenoids: 30-50 Hz
+
+**Considerations:**
+- Higher frequency = finer control resolution
+- Lower frequency = better solenoid compatibility
+- Match to solenoid specification for best results

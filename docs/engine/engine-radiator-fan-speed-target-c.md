@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the target fan speed (PWM duty cycle) based on coolant temperature for operating condition C. This table provides progressive fan speed control for specific operating scenarios. The PWM signal modulates fan motor speed, with higher duty cycles commanding faster rotation.
+
+Table C may correspond to conditions such as idle operation, post-drive key-off cooling, or specific A/C states. Multiple fan speed tables allow optimized cooling behavior across different driving and environmental conditions.
 
 ## Axes
 
@@ -45,20 +47,41 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using coolant temperature:
+
+1. **Temperature Reading**: ECU monitors coolant temperature sensor
+2. **Condition Check**: ECU determines if Table C conditions are active
+3. **Table Lookup**: Interpolates between temperature breakpoints
+4. **PWM Output**: Commands fan motor speed via duty cycle
+
+The table covers 94-102°C, providing fine control through the critical cooling temperature range.
 
 ## Related Tables
 
-- TBD
+- **Engine - Radiator - Fan Speed Target A/B**: Other fan speed tables
+- **Engine - Radiator - Fan 1/2 - Coolant Threshold A-E**: Activation thresholds
 
 ## Related Datalog Parameters
 
-- TBD
+- **Coolant Temperature (°C)**: X-axis input
+- **Radiator Fan Duty (%)**: Output duty cycle
+- **Radiator Fan Status**: On/Off state
+- **Vehicle Speed**: May affect table selection
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Adjust curve shape for desired cooling response
+- Coordinate with Tables A and B for consistent behavior
+- Consider condition-specific requirements (idle vs driving)
+
+**Considerations:**
+- Changes should maintain cooling capability
+- Higher duty cycles increase power draw
+- Test across operating conditions this table affects
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Insufficient cooling risks engine damage
+- Excessive duty causes unnecessary noise and wear
+- Verify adequate cooling in all conditions after changes

@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Provides compensation adders for the aggressive exhaust cam retard strategy at LOW barometric pressure (high altitude) when TGVs are open. This table modifies the aggressive exhaust cam target at altitude.
+
+The data shows all zeros, indicating no additional compensation is applied to the aggressive exhaust cam strategy at altitude. The aggressive target altitude table values are used directly.
+
+Unlike the standard TGV-open altitude compensation which has active negative values, the aggressive strategy does not receive additional altitude adjustment beyond the base aggressive altitude table.
 
 ## Axes
 
@@ -55,20 +59,48 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU uses this as a compensation adder (currently inactive):
+
+1. **Mode Check**: Aggressive AVCS mode active
+2. **Barometric Check**: Low barometric pressure (altitude)
+3. **Base Target**: ECU gets aggressive altitude exhaust cam target
+4. **Compensation**: This table provides offset (all zeros)
+5. **Result**: Aggressive altitude target used without modification
+
+**Stock Calibration:**
+- All values are 0.0
+- Aggressive altitude table used directly
+- No layered altitude compensation for aggressive mode
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target Aggressive (TGV Open)**: Base target
+- **AVCS - Exhaust - Baro High - Compensation Aggressive (TGV Open)**: Sea level variant
+- **AVCS - Exhaust - Baro Low - Compensation (TGV Open)**: Standard has active values
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Final commanded position
+- **Barometric Pressure (kPa)**: Altitude determination
+- **AVCS Mode**: Aggressive mode selection
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Comparison to Standard:**
+- Standard TGV-open altitude compensation is active (negative values)
+- Aggressive mode altitude compensation is inactive (zeros)
+- Different optimization strategy for each mode
+
+**Altitude + Aggressive:**
+- Aggressive altitude base table handles all adjustment
+- No layered compensation in stock calibration
+- Available for custom performance tuning
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Aggressive mode at altitude is demanding on engine
+- Test thoroughly at actual altitude
+- Monitor knock activity carefully
+- Coordinate with intake cam aggressive altitude tables
+- Don't assume sea level aggressive values work at altitude

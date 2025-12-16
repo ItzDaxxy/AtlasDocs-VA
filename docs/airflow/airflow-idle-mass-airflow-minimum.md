@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the minimum mass airflow (g/s) allowed by the ECU at various RPM and coolant temperature conditions. This table sets a floor on calculated airflow, preventing the ECU from computing unrealistically low airflow values that could cause fueling or control issues.
+
+This minimum ensures stable idle and deceleration behavior. Even if the MAF sensor reads very low, the ECU will not use an airflow value below this minimum for its calculations. This prevents issues like tip-in hesitation from overly lean transient fueling.
+
+Values are in G_PER_SEC (grams per second). The table shows relatively consistent minimums across temperature, varying primarily with RPM.
 
 ## Axes
 
@@ -55,20 +59,59 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation and applies as a minimum:
+
+1. **Inputs**: Coolant Temperature, Engine RPM
+2. **Table Lookup**: 2D interpolation for minimum airflow
+3. **Minimum Enforcement**: Used Airflow = MAX(Calculated, Minimum)
+
+**Application Logic:**
+```
+If (Calculated_Airflow < Minimum_Airflow):
+    Use Minimum_Airflow
+Else:
+    Use Calculated_Airflow
+```
+
+**Purpose:**
+- Prevents unrealistically low airflow calculations
+- Ensures minimum fueling for engine stability
+- Improves deceleration fuel cut recovery
 
 ## Related Tables
 
-- TBD
+- **Sensors - Mass Airflow**: MAF sensor calibration
+- **Engine - Idle Speed Target**: Commanded idle RPM
+- **Fuel - Injector Scaling**: Fueling from airflow
+- **Airflow - MAF - VE Correction**: Airflow calculation
 
 ## Related Datalog Parameters
 
-- TBD
+- **Coolant Temperature (°C)**: X-axis input
+- **Engine RPM**: Y-axis input (during idle/low-load)
+- **MAF (g/s)**: Compared against minimum
+- **Calculated Load**: Uses enforced minimum
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- May need adjustment with cam changes affecting idle airflow
+- Larger injectors may need higher minimums
+- Affects tip-in response from closed throttle
+
+**Considerations:**
+- Too high: Over-rich at idle/decel
+- Too low: May not prevent calculation errors
+- Stock values appropriate for most applications
+
+**Interaction with Fuel Cut:**
+- During decel fuel cut, airflow can be very low
+- Minimum helps smooth fuel cut recovery
+- Prevents lean hesitation on tip-in
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Excessive minimum causes rich idle conditions
+- Too low minimum may cause tip-in hesitation
+- Monitor AFR at idle after modifications
+- Verify smooth decel fuel cut recovery

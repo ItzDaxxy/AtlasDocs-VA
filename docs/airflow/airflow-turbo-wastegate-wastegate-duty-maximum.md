@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the maximum wastegate duty cycle allowed based on requested torque and RPM. This table sets an upper limit on how much the wastegate solenoid can be commanded, regardless of what the boost control system requests.
+
+Higher duty = more wastegate closure = more boost. This table caps the maximum duty to prevent over-boost conditions even if the Initial Duty + PI correction would command higher values.
+
+The stock values show 10% minimum at low torque requests, increasing to higher percentages (40-60%+) at high torque requests where more boost is demanded.
 
 ## Axes
 
@@ -55,20 +59,45 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using torque request and RPM:
+
+1. **Torque/RPM Reading**: ECU monitors both values
+2. **Table Lookup**: 2D interpolation determines maximum duty
+3. **Duty Clamping**: Final Duty = MIN(Calculated Duty, Maximum)
+4. **Output**: Clamped duty sent to wastegate solenoid
+
+**Final Wastegate Duty = MIN(Initial + Compensations + PI, Maximum)**
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Wastegate - Duty Initial**: Base feedforward duty
+- **Airflow - Turbo - Wastegate - IAT/Baro Compensation**: Duty adjustments
+- **Airflow - Turbo - PI Control**: Closed-loop corrections
+- **Airflow - Turbo - Boost - Target Main**: What boost is requested
 
 ## Related Datalog Parameters
 
-- TBD
+- **Wastegate Duty (%)**: Final commanded duty
+- **Wastegate Duty Maximum (%)**: Output from this table
+- **Requested Torque (Nm)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Increase for larger turbo requiring more duty to spool
+- May need higher values for external wastegate setups
+- Coordinate with Initial Duty table for proper boost control
+
+**Considerations:**
+- Stock values are conservative for reliability
+- Higher values needed for high-boost applications
+- Ensure solenoid can handle commanded duty
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Excessive maximum duty can cause dangerous over-boost
+- Setting too high removes boost control headroom
+- Boost spikes can occur before PI control can react
+- Monitor boost closely when increasing maximum values
+- Verify turbo can handle resulting boost levels

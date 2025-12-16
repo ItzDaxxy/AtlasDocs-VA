@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Adjusts boost target based on Intake Air Temperature (IAT). Hot intake air is less dense and more prone to knock, so this table typically reduces boost targets at higher IAT to protect the engine.
+
+Values are in PERCENT - negative values reduce boost target at hot temperatures, helping prevent knock when intercooler efficiency decreases. This compensation is critical during heat-soak conditions common in traffic or after spirited driving.
 
 ## Axes
 
@@ -45,20 +47,46 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using IAT:
+
+1. **IAT Reading**: ECU reads intake air temperature sensor
+2. **Table Lookup**: Interpolates compensation percentage
+3. **Target Adjustment**: Base Target × (1 + Compensation%)
+
+**Temperature Compensation:**
+- Cold IAT: May add boost (denser air)
+- Normal IAT (20-40°C): No compensation (0%)
+- Hot IAT (50°C+): Reduce boost for safety
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Boost - Boost Target Main**: Base boost target
+- **Airflow - Turbo - Boost - Barometric Compensation**: Altitude adjustment
+- **Airflow - Turbo - Wastegate - IAT Compensation**: Wastegate duty adjustment
+- **Ignition - IAT Compensation**: Timing adjustment for IAT
 
 ## Related Datalog Parameters
 
-- TBD
+- **IAT (°C)**: X-axis input
+- **Target Boost**: Result after compensation
+- **Actual Boost**: Measured manifold pressure
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Reduce hot IAT derating with upgraded intercooler
+- May increase cold IAT boost addition for denser air
+- Coordinate with ignition IAT compensation
+
+**Considerations:**
+- Hot air = less dense = higher effective AFR
+- Hot air = more knock prone
+- Upgraded intercooler allows less conservative values
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Hot IAT dramatically increases knock risk
+- Don't reduce hot IAT compensation without intercooler upgrades
+- Heat-soak can spike IAT rapidly during traffic/hard driving
+- Monitor knock and AFR when adjusting these values
+- Consider water-methanol injection for consistent IAT

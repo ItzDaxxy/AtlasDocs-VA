@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines open-loop fuel targets (AFR equivalence ratio) for conditions when AVCS is enabled AND DAM (Dynamic Advance Multiplier) is low due to detected knock. This is a protective fuel map that provides richer targets when the engine is experiencing knock.
+
+Values are in AFR Equivalence Ratio where 1.0 = stoichiometric (14.7:1 AFR) and values >1.0 indicate richer mixtures. The table shows richer targets (1.3-1.4) at higher loads, providing knock protection through additional fuel.
+
+This table is activated when DAM drops below the threshold specified in "Low DAM Threshold" - typically triggered by sustained knock activity requiring protective enrichment.
 
 ## Axes
 
@@ -55,20 +59,55 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on calculated load and RPM:
+
+1. **DAM Check**: ECU monitors Dynamic Advance Multiplier
+2. **AVCS Check**: AVCS must be enabled
+3. **Table Selection**: If DAM below threshold, use this table
+4. **Target Lookup**: 2D interpolation for target AFR equivalence
+5. **Fueling**: Injector pulse width calculated to achieve target
+
+**Low DAM Protection:**
+- DAM drops when knock is detected
+- Low DAM = sustained knock activity
+- Richer fuel provides knock protection
+- Additional cooling effect from extra fuel
 
 ## Related Tables
 
-- TBD
+- **Fuel - Open Loop - AVCS Enabled - Low DAM Threshold**: Activates this table
+- **Fuel - Open Loop - AVCS Enabled - Target Base (TGV Open)**: Standard table
+- **Ignition - Primary - AVCS Enabled**: Timing also affected by DAM
 
 ## Related Datalog Parameters
 
-- TBD
+- **DAM (Dynamic Advance Multiplier)**: Triggers table selection
+- **Target AFR**: Output from this table
+- **Actual AFR**: Measured via wideband
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Low DAM Strategy:**
+- Richer than standard fuel targets
+- Provides knock protection margin
+- Additional fuel cools combustion
+
+**Stock Threshold Note:**
+- Stock DAM threshold is 1.0 (effectively never activated)
+- Lower threshold to enable this protection (e.g., 0.9)
+- Provides safety net during knock events
+
+**Typical Values:**
+- Higher equivalence ratio than standard
+- More enrichment at high load/boost
+- Conservative for engine protection
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Low DAM indicates knock is being detected
+- Address root cause of knock (fuel, timing, boost)
+- This table provides protection, not a solution
+- Monitor knock count and DAM regularly
+- Persistent low DAM requires investigation

@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the denominator value used in torque ratio calculations based on engine RPM. The ECU uses this to normalize torque requests relative to the engine's torque capability at each RPM point.
+
+**Torque Ratio = Requested Torque / Denominator**
+
+This creates a normalized value (typically 0-1) representing the percentage of available torque being requested. The denominator effectively represents the maximum torque reference at each RPM, allowing consistent throttle mapping regardless of where peak torque occurs in the power band.
 
 ## Axes
 
@@ -45,20 +49,45 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using engine RPM:
+
+1. **RPM Reading**: ECU monitors current engine RPM
+2. **Table Lookup**: Interpolates denominator value for current RPM
+3. **Ratio Calculation**: Torque Ratio = Requested Torque / Denominator
+4. **Usage**: Ratio used in Target Throttle tables and other calculations
+
+**Calculation Example:**
+- Requested Torque: 300 Nm
+- Denominator at RPM: 400 Nm
+- Torque Ratio: 300/400 = 0.75 (75% of available torque)
 
 ## Related Tables
 
-- TBD
+- **Throttle - Target Throttle - Main**: Uses torque ratio for throttle calculation
+- **Throttle - Requested Torque - In-Gear/Out-of-Gear**: Source of torque request
+- **Throttle - Requested Torque - Limits**: Torque capping tables
 
 ## Related Datalog Parameters
 
-- TBD
+- **Requested Torque (Nm)**: Numerator in ratio calculation
+- **Requested Torque Ratio**: Result of calculation (0-1 typical)
+- **Engine RPM**: X-axis input for denominator lookup
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Adjust to match engine's actual torque curve on modified engines
+- Should approximate peak torque capability at each RPM
+- Affects how pedal position translates to throttle opening
+
+**Considerations:**
+- Scaling this affects pedal sensitivity across RPM range
+- Lower values = more aggressive throttle response
+- Should match actual engine capability for linear pedal feel
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Incorrect values cause nonlinear or unpredictable throttle response
+- Too low causes excessive throttle opening for given pedal position
+- Too high causes sluggish response
+- Coordinate with Target Throttle tables when modifying

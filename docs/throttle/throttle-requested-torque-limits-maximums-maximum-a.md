@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the maximum allowable torque request based on engine RPM for operating condition A. This table sets an upper limit on how much torque the driver can request through the accelerator pedal, preventing excessive torque demands that could exceed the engine's safe operating limits.
+
+Maximum A is one of multiple maximum torque tables (A, B, C) used under different operating conditions. The ECU selects the appropriate table based on factors like gear position, traction control status, or temperature conditions.
+
+This limit directly affects throttle response and power delivery - the requested torque (from pedal input) is clipped to these maximum values before being converted to throttle opening commands.
 
 ## Axes
 
@@ -45,20 +49,46 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using engine RPM:
+
+1. **RPM Reading**: ECU monitors current engine RPM
+2. **Condition Check**: ECU determines if Maximum A conditions apply
+3. **Table Lookup**: Interpolates maximum torque for current RPM
+4. **Torque Limiting**: Requested torque capped at this value
+5. **Throttle Control**: Limited torque request converted to throttle position
+
+**Torque Request Flow:**
+Pedal Position → Base Torque Request → MIN(Request, Maximum Table) → Throttle Target
 
 ## Related Tables
 
-- TBD
+- **Throttle - Requested Torque - Limits - Maximum B/C**: Other maximum torque tables
+- **Throttle - Requested Torque - In-Gear/Out-of-Gear**: Base torque request tables
+- **Throttle - Target Throttle - Main**: Converts torque request to throttle position
 
 ## Related Datalog Parameters
 
-- TBD
+- **Requested Torque (Nm)**: Driver's torque demand (before limiting)
+- **Limited Torque (Nm)**: Final torque after applying limits
+- **Engine RPM**: X-axis input for table lookup
+- **Throttle Opening (%)**: Final throttle command
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Increase values to allow higher torque requests on modified engines
+- Must be coordinated with actual engine capability
+- Higher limits require supporting fuel, boost, and ignition changes
+
+**Considerations:**
+- These limits exist to protect the drivetrain
+- Exceeding engine/transmission torque capacity risks damage
+- Changes should match other torque management tables
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Exceeding safe torque limits causes drivetrain damage
+- Must match actual engine torque output capability
+- Coordinate with boost limits and fuel delivery capacity
+- Excessive torque requests can overwhelm traction control
+- Test carefully - torque limits are safety-critical

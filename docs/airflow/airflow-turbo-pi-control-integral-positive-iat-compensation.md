@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Adjusts the positive integral gain (I-term for under-boost) of the boost PI controller based on Intake Air Temperature. The I-term accumulation rate may need modification at different temperatures to maintain stable boost control.
+
+Values are in PERCENT - applied as a modifier to the base positive I-term. At hot IAT conditions, the I-term may be reduced to slow the accumulation rate, preventing integral windup when the system is thermally compromised and boost targets may be intentionally reduced.
+
+This compensation ensures consistent I-term behavior across varying temperature conditions.
 
 ## Axes
 
@@ -45,20 +49,46 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using IAT:
+
+1. **IAT Reading**: ECU reads intake air temperature
+2. **Table Lookup**: Interpolate I-term compensation percentage
+3. **I-Term Adjustment**: Compensated I-gain = Base I × (1 + Compensation%)
+
+**Temperature Effects on I-Term:**
+- Cold IAT: Normal I-term accumulation
+- Hot IAT: May reduce I-term to prevent windup during thermal derating
+- Coordinates with boost target IAT compensation
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - PI Control - Integral Positive**: Base I-term modified by this
+- **Airflow - Turbo - PI Control - Proportional IAT Compensation**: P-term IAT adjustment
+- **Airflow - Turbo - PI Control - Integral Positive Limit**: Maximum I-term value
+- **Airflow - Turbo - Boost - IAT Compensation**: Target boost IAT adjustment
 
 ## Related Datalog Parameters
 
-- TBD
+- **IAT (°C)**: X-axis input
+- **PI Integral Sum**: Accumulated I-term value
+- **Wastegate Duty (%)**: Includes I-term contribution
+- **Boost Error (Pa)**: I-term input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- May reduce I-gain at hot IAT to prevent aggressive accumulation
+- Coordinate with boost target IAT compensation
+- If boost target is reduced at hot IAT, I-term may also need reduction
+
+**Considerations:**
+- Hot IAT conditions often have reduced boost targets
+- I-term trying to chase reduced target needs less aggressive gain
+- Prevents integral windup during heat-soak recovery
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Integral windup can cause boost overshoot when conditions change
+- Coordinate with other IAT compensation tables
+- Test at various temperature conditions
+- Monitor I-term accumulation in datalogs

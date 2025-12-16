@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the "aggressive" exhaust camshaft retard targets for LOW barometric pressure (high altitude) conditions when TGVs are open. This is the altitude-compensated version of the aggressive exhaust cam target table.
+
+At higher altitudes, the aggressive strategy is modified to account for reduced air density and different turbo behavior. The values may differ from the sea-level aggressive table to optimize performance in thin air conditions.
+
+This table is used when the ECU selects aggressive AVCS mode while operating at higher elevations.
 
 ## Axes
 
@@ -55,20 +59,49 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on RPM and calculated load:
+
+1. **Mode Selection**: ECU determines aggressive AVCS mode is active
+2. **Barometric Check**: Low barometric pressure (high altitude)
+3. **TGV Check**: TGVs are OPEN
+4. **Table Lookup**: 2D interpolation for exhaust cam target
+5. **Output**: Target sent to exhaust AVCS solenoid
+
+**Altitude + Aggressive Mode:**
+- Combines performance strategy with altitude compensation
+- May be more or less aggressive than sea level
+- Optimized for thin air turbo behavior
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Exhaust Cam Target Aggressive (TGV Open)**: Sea level variant
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target (TGV Open)**: Standard altitude table
+- **AVCS - Intake - Baro Low - Intake Cam Target Aggressive (TGV Open)**: Companion intake
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Commanded position
+- **AVCS Exhaust Actual (°)**: Measured position
+- **Barometric Pressure (kPa)**: Table selection
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Altitude-specific performance tuning
+- Coordinate with other altitude tables
+- Test at actual altitude conditions
+
+**Altitude Considerations:**
+- Different scavenging dynamics at altitude
+- Turbo works differently in thin air
+- May need different strategy than sea level
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Altitude tuning requires altitude testing
+- Don't copy sea level values without validation
+- Monitor turbo behavior at altitude
+- Coordinate with intake cam altitude tables
+- Test knock activity at altitude

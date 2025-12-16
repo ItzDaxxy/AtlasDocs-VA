@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the target boost threshold at which closed-loop PI control activates, based on RPM. Below this threshold, the wastegate operates in open-loop mode using only feedforward (Initial Duty). Above this threshold, the PI controller engages to actively correct boost toward the target.
+
+Values are in BAR (absolute pressure). The table specifies at what target boost level PI control should become active at each RPM point. This prevents PI control from interfering during low-boost operation where precise control is unnecessary, and ensures the PI system only engages when meaningful boost correction is required.
 
 ## Axes
 
@@ -45,20 +47,61 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU uses this as a switch point for PI activation:
+
+1. **RPM Reading**: ECU monitors engine RPM
+2. **Table Lookup**: Interpolate activation threshold
+3. **Comparison**: If Target Boost > Threshold, enable PI
+4. **Mode Selection**: PI active or feedforward only
+
+**Control Mode Logic:**
+```
+If (Target_Boost > PI_Activation_Threshold):
+    Wastegate_Duty = Initial + P-term + I-term + Compensations
+Else:
+    Wastegate_Duty = Initial + Compensations (open-loop)
+```
+
+**Threshold Purpose:**
+- Low boost: Feedforward (Initial Duty) is sufficient
+- High boost: Closed-loop PI provides precise control
+- Prevents unnecessary PI activity at low loads
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - PI Control - Proportional**: P-term when PI active
+- **Airflow - Turbo - PI Control - Integral Positive/Negative**: I-terms when PI active
+- **Airflow - Turbo - Wastegate - Duty Initial**: Feedforward duty
+- **Airflow - Turbo - Boost - Target Main**: Current boost target
 
 ## Related Datalog Parameters
 
-- TBD
+- **Engine RPM**: X-axis input
+- **Target Boost (bar)**: Compared against threshold
+- **PI Active (boolean)**: Whether PI control is engaged
+- **Wastegate Duty (%)**: Changes when PI activates
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Lower threshold to engage PI control earlier
+- Higher threshold to rely more on feedforward
+- Stock values typically engage PI around 1.0-1.2 bar absolute
+
+**Considerations:**
+- Earlier PI activation = more precise low-boost control
+- Later PI activation = smoother transitions, less hunting
+- Match to boost target table activation points
+
+**Threshold Guidelines:**
+- Set below minimum positive boost target
+- Ensure PI is active before significant boost builds
+- Leave margin to avoid PI cycling on/off
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Setting too high may delay PI correction for over-boost
+- Setting too low may cause PI hunting at low loads
+- I-term should reset when PI deactivates to prevent windup
+- Verify PI activates before boost target is reached
+- Test transitions around threshold RPM points

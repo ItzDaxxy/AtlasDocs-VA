@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Provides compensation adders for the aggressive exhaust cam retard strategy at HIGH barometric pressure (sea level) when TGVs are open. This table modifies the aggressive exhaust cam target under specific conditions.
+
+The data shows all zeros, indicating no additional compensation is applied to the aggressive exhaust cam strategy at sea level. The aggressive target table values are used directly without modification.
+
+This table exists for tuning flexibility - compensation could be added for specific performance or condition-based adjustments to the aggressive cam strategy.
 
 ## Axes
 
@@ -55,20 +59,47 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU uses this as a compensation adder (currently inactive):
+
+1. **Mode Check**: Aggressive AVCS mode active
+2. **Base Target**: ECU gets aggressive exhaust cam target
+3. **Compensation**: This table provides offset (all zeros)
+4. **Result**: Aggressive target used without modification
+
+**Stock Calibration:**
+- All values are 0.0
+- Aggressive target table used directly
+- Available for custom tuning
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Exhaust Cam Target Aggressive (TGV Open)**: Base target
+- **AVCS - Exhaust - Baro Low - Compensation Aggressive (TGV Open)**: Altitude variant
+- **AVCS - Exhaust - Baro High - Compensation (TGV Open)**: Standard compensation
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Final commanded position
+- **AVCS Mode**: Aggressive mode selection
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Stock Values:**
+- All zeros - aggressive targets used directly
+- Available for performance tuning
+- Could add condition-specific aggressive adjustments
+
+**Potential Uses:**
+- Temperature-based aggressive compensation
+- Load-specific aggressive modifications
+- Fine-tuning without changing aggressive base table
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Aggressive cam timing already more demanding
+- Additional compensation increases complexity
+- Test thoroughly after any changes
+- Monitor knock and driveability
+- Coordinate with intake cam aggressive tables

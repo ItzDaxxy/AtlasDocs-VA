@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Applies a volumetric efficiency (VE) correction factor when the Tumble Generator Valves (TGVs) are in the CLOSED position. TGVs restrict airflow when closed, creating a tumbling air motion in the cylinder that improves combustion efficiency and emissions at light loads.
+
+When TGVs are closed, the intake runners have reduced effective area. This creates stronger in-cylinder air motion (tumble) that promotes better fuel-air mixing and more complete combustion - important for emissions compliance and fuel efficiency at light loads.
+
+Values are in PERCENT representing the VE under TGV-closed conditions. The ECU selects this table when TGVs are closed, typically during idle, low-load cruise, and cold start conditions.
 
 ## Axes
 
@@ -55,20 +59,58 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using MAP and RPM when TGVs are closed:
+
+1. **TGV State Check**: ECU determines TGV position
+2. **If TGVs Closed**: Use this table
+3. **Table Lookup**: 2D interpolation for VE percentage
+4. **Airflow Correction**: Applied to MAF reading
+
+**TGV Operation:**
+- TGVs CLOSED: Restricted flow, creates tumble
+- TGVs OPEN: Maximum flow, used at higher loads
+- Transition between states based on operating conditions
+
+**Typical TGV-Closed Conditions:**
+- Idle and low RPM operation
+- Light load/cruise conditions
+- Cold start (for emissions)
+- Lower throttle positions
 
 ## Related Tables
 
-- TBD
+- **Airflow - MAF - MAF VE Correction (TGV Open) A**: VE when TGVs open
+- **Airflow - MAF - MAF VE Correction B**: Alternative VE table
+- **AVCS - TGV Control**: TGV position control
+- **Fuel - Target AFR**: Uses corrected airflow
 
 ## Related Datalog Parameters
 
-- TBD
+- **MAP (PSI/kPa)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **TGV Position**: Determines table selection
+- **MAF (g/s)**: Input to be corrected
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- TGV delete renders this table inactive
+- Affects idle and cruise fueling accuracy
+- Important for emissions and fuel economy
+
+**TGV Delete Considerations:**
+- With TGVs deleted (or held open), this table unused
+- No need to tune if TGVs are removed
+- Some leave TGVs in place for emissions compliance
+
+**Considerations:**
+- TGV-closed VE typically lower than TGV-open
+- Critical for smooth idle and good cruise fuel economy
+- Emissions testing often uses TGV-closed conditions
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- TGV delete affects emissions and may cause check engine light
+- Incorrect TGV-closed VE affects idle quality
+- Ensure fuel trims are acceptable at cruise after changes
+- Cold start behavior depends on this table

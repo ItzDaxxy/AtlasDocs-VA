@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Adjusts wastegate duty based on Intake Air Temperature (IAT). Hot intake air affects boost behavior and increases knock risk, so this table modifies wastegate control accordingly.
+
+Values are in PERCENT - typically negative values at hot IAT reduce wastegate duty, allowing boost reduction to protect the engine during heat-soak conditions.
 
 ## Axes
 
@@ -45,20 +47,44 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using IAT:
+
+1. **IAT Reading**: ECU reads intake air temperature
+2. **Table Lookup**: Interpolates duty compensation percentage
+3. **Duty Adjustment**: Applied as modifier to wastegate duty
+
+**Temperature Compensation:**
+- Cold IAT: May increase duty (more boost available)
+- Normal IAT: No adjustment (0%)
+- Hot IAT: Decrease duty (reduce boost for safety)
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Wastegate - Duty Initial**: Base duty modified by this
+- **Airflow - Turbo - Wastegate - Baro Compensation**: Altitude adjustment
+- **Airflow - Turbo - Boost - IAT Compensation**: Target adjustment
 
 ## Related Datalog Parameters
 
-- TBD
+- **IAT (°C)**: X-axis input
+- **Wastegate Duty (%)**: Final commanded duty
+- **Target Boost**: Current boost target
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Reduce hot IAT compensation with upgraded intercooler
+- May add cold IAT duty increase for cold weather performance
+- Coordinate with boost IAT compensation
+
+**Considerations:**
+- Hot IAT = denser charge heating = more knock risk
+- Upgraded intercooler allows less conservative values
+- Cold IAT allows safe boost increase
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Hot IAT significantly increases knock risk
+- Don't reduce hot IAT compensation without intercooler upgrades
+- Heat-soak can spike IAT quickly
+- Monitor knock and boost when adjusting

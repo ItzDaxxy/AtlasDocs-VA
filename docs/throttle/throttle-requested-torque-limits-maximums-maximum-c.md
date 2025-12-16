@@ -13,7 +13,9 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines the maximum allowable torque request based on engine RPM for operating condition C. This table provides a third set of torque limits used under specific ECU-determined conditions, completing the Maximum A/B/C table set.
+
+Maximum C may apply during conditions like warm engine operation, specific driving modes, or as a baseline for comparison against other maximum tables. The ECU selects the minimum of applicable maximum tables to determine the final torque limit.
 
 ## Axes
 
@@ -45,20 +47,38 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using engine RPM:
+
+1. **RPM Reading**: ECU monitors current engine RPM
+2. **Condition Check**: ECU determines if Maximum C conditions apply
+3. **Table Lookup**: Interpolates maximum torque for current RPM
+4. **Torque Limiting**: Requested torque capped at this value
 
 ## Related Tables
 
-- TBD
+- **Throttle - Requested Torque - Limits - Maximum A/B**: Other maximum torque tables
+- **Throttle - Requested Torque - In-Gear/Out-of-Gear**: Base torque request tables
+- **Throttle - Target Throttle - Main**: Torque to throttle conversion
 
 ## Related Datalog Parameters
 
-- TBD
+- **Requested Torque (Nm)**: Driver's torque demand
+- **Limited Torque (Nm)**: Final capped torque
+- **Engine RPM**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Maintain consistency with Maximum A and B tables
+- Scale proportionally with engine modifications
+- Match to actual engine torque capability
+
+**Considerations:**
+- All three maximum tables work together
+- ECU uses minimum of applicable limits
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Torque limits protect drivetrain components
+- Excessive torque limits risk engine/transmission damage
+- Changes must match supporting modifications

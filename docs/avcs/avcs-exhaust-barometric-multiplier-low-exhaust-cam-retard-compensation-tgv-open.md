@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Provides altitude-specific compensation for exhaust cam retard at LOW barometric pressure (high altitude) when TGVs are open. Unlike the sea-level compensation tables which are all zeros, this table contains NEGATIVE values that actively reduce exhaust cam retard at altitude.
+
+The negative compensation values (-10° to -51° in the low-mid RPM range) reduce valve overlap at altitude. This accounts for the different exhaust scavenging dynamics and turbo behavior at higher elevations where air density is lower.
+
+This is one of the few compensation tables with non-zero values in the stock calibration, indicating that altitude compensation for exhaust cam timing is actively used by the ECU.
 
 ## Axes
 
@@ -55,20 +59,58 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU uses this as an active altitude compensation:
+
+1. **Barometric Check**: Low barometric pressure detected
+2. **Base Target**: ECU gets base exhaust cam retard
+3. **Compensation**: Negative values SUBTRACT from retard target
+4. **Result**: Less exhaust retard at altitude
+
+**Active Compensation:**
+- Unlike sea-level tables (all zeros), this is active
+- Negative values reduce exhaust cam retard
+- Maximum reduction around -51° at specific RPM/load
+- Effect concentrated in low-mid RPM range
+
+**Formula:**
+```
+Altitude_Exhaust_Target = Base_Target + Negative_Compensation
+```
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Compensation (TGV Open)**: Sea level (all zeros)
+- **AVCS - Exhaust - Baro Low - Exhaust Cam Target (TGV Open)**: Base target
+- **AVCS - Intake - Baro Low - Compensation**: Intake cam altitude compensation
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Final target after compensation
+- **Barometric Pressure (kPa)**: Triggers altitude compensation
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Understanding Altitude Compensation:**
+- Negative values reduce exhaust retard at altitude
+- Less overlap may suit thin air scavenging dynamics
+- Stock calibration actively compensates 1200-2400 RPM range
+
+**Altitude Tuning:**
+- May need adjustment for altitude-frequent drivers
+- Coordinate with intake cam altitude compensation
+- Test at actual altitude conditions
+
+**Pattern Analysis:**
+- Zero at idle/very low RPM (stability priority)
+- Maximum negative in low-mid RPM (spool range)
+- Returns to zero at high RPM
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Active table - changes affect altitude operation
+- Coordinate with intake cam altitude tables
+- Test at actual altitude conditions
+- Don't reduce altitude compensation without testing
+- Monitor turbo behavior at altitude

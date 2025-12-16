@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines primary ignition timing in degrees BTDC for conditions when AVCS is ENABLED AND TGVs are CLOSED. This is one of four primary timing tables selected based on AVCS and TGV state, used during idle, light load, cold start, and cruise conditions where TGVs restrict intake flow to create tumble.
+
+Values range from 34° advance at light load/low RPM to -9° (retarded after TDC) at high load/low RPM conditions. The table shows aggressive timing at low loads with significant reduction as load increases to prevent knock.
+
+TGV-closed operation with AVCS enabled represents normal idle and light-load operation where tumble promotes efficient combustion, allowing more timing advance. AVCS optimizes cam timing while TGVs enhance mixture motion.
 
 ## Axes
 
@@ -55,20 +59,55 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on calculated load and RPM:
+
+1. **State Check**: AVCS enabled AND TGVs closed
+2. **Table Selection**: Use this AVCS-enabled TGV-closed timing map
+3. **Base Lookup**: 2D interpolation for base timing
+4. **Corrections Applied**: IAT, knock, DAM, octane adjustments
+5. **Final Timing**: Command sent to ignition system
+
+**AVCS Enabled + TGV Closed Timing:**
+- Normal idle and light-load operation
+- Tumble enhances combustion efficiency
+- AVCS optimizes overlap for conditions
+- More timing possible due to better combustion
 
 ## Related Tables
 
-- TBD
+- **Ignition - Primary - AVCS Enabled - TGV Open**: TGV open variant
+- **Ignition - Primary - AVCS Disabled - TGV Closed**: AVCS disabled variant
+- **Fuel - Open Loop - AVCS Enabled - Target Base (TGV Closed)**: Companion fuel table
+- **Ignition - Primary - Knock Correction**: Knock-based timing reduction
 
 ## Related Datalog Parameters
 
-- TBD
+- **Ignition Timing**: Final timing output
+- **Feedback Knock Correction**: Immediate knock response
+- **Fine Knock Learn**: Learned knock correction
+- **AVCS Status**: Enabled for this table
+- **TGV Position**: Closed for this table
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**TGV Closed Strategy:**
+- Light load benefits from tumble combustion
+- Timing can be more aggressive than TGV-open
+- Critical for idle quality and emissions
+- AVCS overlap optimized for these conditions
+
+**Idle/Cruise Operation:**
+- Low-load cells affect daily drivability
+- Timing affects fuel economy at cruise
+- Changes here impact emissions testing
+- Conservative approach recommended
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- TGV-closed timing affects idle and emissions
+- Changes impact cold start behavior
+- Verify no knock at all TGV-closed conditions
+- TGV delete requires timing reconsideration
+- Monitor knock at light-load conditions
+- Excessive timing causes rough idle

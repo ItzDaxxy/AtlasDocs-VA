@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Limits maximum torque request based on Dynamic Advance Multiplier (DAM) value and engine RPM. DAM is a knock feedback parameter that ranges from 0.0 (maximum knock retard applied) to 1.0 (no knock-based timing reduction). This table reduces allowable torque when DAM drops, providing engine protection during knock events.
+
+When the engine experiences knock, DAM decreases, and this table progressively limits torque request to reduce cylinder pressure and protect the engine. At DAM 1.0, full torque is available (350 Nm across most RPM range). At lower DAM values, torque limits decrease, especially at higher RPM where knock is most dangerous.
+
+This is a critical safety table that prevents the engine from requesting excessive torque when knock adaptation indicates combustion issues.
 
 ## Axes
 
@@ -53,20 +57,55 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using DAM and RPM:
+
+1. **DAM Monitoring**: ECU tracks current DAM value (knock feedback)
+2. **RPM Reading**: ECU monitors engine RPM
+3. **Table Lookup**: 2D interpolation determines maximum torque
+4. **Torque Limiting**: Requested torque capped at this value when DAM is low
+
+**Protection Logic:**
+- DAM = 1.0: Full torque allowed (no knock detected)
+- DAM < 1.0: Torque progressively limited
+- DAM = 0.0: Maximum torque reduction applied
 
 ## Related Tables
 
-- TBD
+- **Ignition - Dynamic Advance Multiplier**: Source of DAM value
+- **Ignition - Feedback Knock Correction**: Individual cylinder knock response
+- **Throttle - Requested Torque - Limits - Maximum A/B/C**: Base maximum tables
+- **Airflow - Turbo - Boost - Target**: Affected by torque limits
 
 ## Related Datalog Parameters
 
-- TBD
+- **DAM**: Dynamic Advance Multiplier (0.0-1.0)
+- **Feedback Knock Correction**: Per-cylinder knock retard
+- **Fine Knock Learn**: Long-term knock adaptation
+- **Requested Torque (Nm)**: Before DAM limiting
+- **Limited Torque (Nm)**: After all limits applied
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Understanding the Table:**
+- Low DAM rows show reduced torque limits (engine protecting itself)
+- High RPM columns may show more aggressive limiting
+- Values at DAM 1.0 represent normal maximum torque
+
+**Common Modifications:**
+- Generally not modified - this is engine protection
+- May increase limits slightly for engines with consistent DAM 1.0
+- Reducing limits provides more conservative protection
+
+**Considerations:**
+- This table is a safety system - modify with extreme caution
+- Frequent low DAM indicates fuel/timing/hardware issues
+- Address root cause of DAM drops rather than modifying limits
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- **CRITICAL SAFETY TABLE**: Increasing limits can cause engine damage
+- Low DAM indicates knock - torque reduction protects the engine
+- Never increase limits to mask underlying tuning/mechanical problems
+- If DAM frequently drops below 1.0, investigate and fix the cause
+- Ringland failure and rod knock are common results of ignoring knock
+- Always datalog DAM, knock, and timing when modifying this table

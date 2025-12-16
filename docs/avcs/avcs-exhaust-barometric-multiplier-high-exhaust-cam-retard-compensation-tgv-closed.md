@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Provides additional compensation adders for exhaust cam retard targets at high barometric pressure (sea level) when TGVs are CLOSED. This table adds to the base exhaust cam target under specific conditions.
+
+The data shows all zeros, indicating this compensation table is not actively used in the stock calibration. The base target tables for TGV-closed operation are used without additional compensation.
+
+This table exists for tuning flexibility and allows modification of cam timing behavior during TGV-closed conditions (idle, light load, cruise) without altering the primary target tables.
 
 ## Axes
 
@@ -55,20 +59,56 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU uses this table as an adder to the base target:
+
+1. **Base Target**: ECU looks up exhaust cam target from TGV-closed main table
+2. **Compensation Lookup**: This table provides additional offset
+3. **Final Target**: Base Target + Compensation = Commanded Position
+
+**Stock Calibration:**
+- All values are 0.0 - no compensation applied
+- TGV-closed base target used directly
+- Available for custom tuning
+
+**TGV Closed Operation:**
+- Active during idle, light load, cruise
+- Higher base retard than TGV-open
+- Compensation could fine-tune these conditions
 
 ## Related Tables
 
-- TBD
+- **AVCS - Exhaust - Baro High - Exhaust Cam Target (TGV Closed)**: Base target this modifies
+- **AVCS - Exhaust - Compensation (TGV Open)**: TGV open variant
+- **AVCS - Exhaust - Retard Target Adder Activation**: Temperature activation
 
 ## Related Datalog Parameters
 
-- TBD
+- **AVCS Exhaust Target (°)**: Final commanded position
+- **TGV Position**: Closed state for this table
+- **Calculated Load (g/rev)**: X-axis input
+- **Engine RPM**: Y-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Fine-tune idle cam timing
+- Adjust cruise behavior
+- Temperature-based cam adjustments
+
+**Stock Values:**
+- All zeros - stock calibration doesn't use compensation
+- TGV-closed base tables sufficient for OEM
+- Available for aftermarket use
+
+**TGV-Closed Considerations:**
+- Affects emissions-critical operating areas
+- Idle quality sensitive to cam timing
+- Cold start depends on these conditions
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- TGV-closed areas are emissions-sensitive
+- Changes affect idle stability
+- Cold start and warm-up impacted
+- Keep compensation values modest
+- Test driveability after any changes

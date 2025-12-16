@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Adjusts the proportional gain (P-term) of the boost PI controller based on Intake Air Temperature. Hot intake air changes boost system behavior - turbo efficiency decreases and air density drops, affecting how the boost control system should respond.
+
+Values are in PERCENT - typically applied as a multiplier to the base P-term. At hot IAT, the P-term may be reduced to prevent over-reaction to boost errors when the system is already operating in a compromised thermal state.
+
+This compensation ensures consistent boost control behavior across varying temperature conditions.
 
 ## Axes
 
@@ -45,20 +49,45 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 1D interpolation using IAT:
+
+1. **IAT Reading**: ECU reads intake air temperature
+2. **Table Lookup**: Interpolate P-term compensation percentage
+3. **P-Term Adjustment**: Compensated P = Base P × (1 + Compensation%)
+
+**Temperature Effects on Boost Control:**
+- Cold IAT: Denser air, more predictable boost response
+- Hot IAT: Less dense air, altered turbo behavior
+- Compensation adapts P-gain to temperature conditions
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - PI Control - Proportional**: Base P-term modified by this
+- **Airflow - Turbo - PI Control - Integral Positive/Negative IAT Compensation**: I-term IAT adjustment
+- **Airflow - Turbo - Wastegate - IAT Compensation**: Wastegate duty IAT adjustment
 
 ## Related Datalog Parameters
 
-- TBD
+- **IAT (°C)**: X-axis input
+- **Wastegate Duty (%)**: Final output including P-term
+- **Boost Error (Pa)**: P-term input
+- **Target/Actual Boost**: Error calculation
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- May reduce P-term at hot IAT to prevent oscillation
+- Could increase at cold IAT if response is sluggish
+- Coordinate with other IAT compensation tables
+
+**Considerations:**
+- Hot IAT changes boost system dynamics
+- P-term may need reduction to maintain stability at high temps
+- Stock values provide reasonable baseline
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Hot IAT dramatically affects boost control behavior
+- Don't remove compensation without understanding effects
+- Test at various IAT conditions
+- Monitor for boost oscillation at temperature extremes

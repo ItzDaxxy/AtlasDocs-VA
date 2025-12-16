@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Defines primary ignition timing in degrees BTDC for conditions when AVCS is DISABLED AND TGVs are CLOSED. This table is used during cold start warm-up before AVCS activates, or when AVCS system faults are present, while operating at idle or light load where TGVs remain closed.
+
+Values range from 26° advance at light load/low RPM to -8° (retarded after TDC) at high load/low RPM conditions. The table generally shows more conservative timing than the AVCS-enabled variant because fixed cam timing (0° position) provides less optimal combustion characteristics.
+
+AVCS-disabled conditions typically occur during cold start before oil pressure is sufficient to actuate the AVCS solenoids. Without AVCS optimization, slightly reduced timing provides engine protection during this transitional period.
 
 ## Axes
 
@@ -55,20 +59,56 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation based on calculated load and RPM:
+
+1. **AVCS Check**: AVCS system is DISABLED (cold start or fault)
+2. **TGV Check**: TGVs are in CLOSED position
+3. **Table Selection**: Use this AVCS-disabled TGV-closed timing map
+4. **Base Lookup**: 2D interpolation for base timing
+5. **Corrections Applied**: IAT, knock, DAM, octane adjustments
+6. **Final Timing**: Command sent to ignition system
+
+**AVCS Disabled Conditions:**
+- Cold start (insufficient oil pressure)
+- AVCS system fault codes present
+- Warm-up period before AVCS activation
+- Cams at default (0°) position
 
 ## Related Tables
 
-- TBD
+- **Ignition - Primary - AVCS Enabled - TGV Closed**: AVCS enabled variant
+- **Ignition - Primary - AVCS Disabled - TGV Open**: TGV open variant
+- **Fuel - Open Loop - AVCS Disabled - Target Base (TGV Closed)**: Companion fuel table
+- **Ignition - Primary - Knock Correction**: Knock-based timing reduction
 
 ## Related Datalog Parameters
 
-- TBD
+- **Ignition Timing**: Final timing output
+- **Feedback Knock Correction**: Immediate knock response
+- **Fine Knock Learn**: Learned knock correction
+- **AVCS Status**: Disabled for this table
+- **TGV Position**: Closed for this table
+- **Calculated Load (g/rev)**: X-axis input
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**AVCS Disabled Strategy:**
+- Used during cold start warm-up
+- Cams at default position (no advance/retard)
+- Timing compensates for fixed cam timing
+- More conservative than AVCS-enabled tables
+
+**Cold Start Considerations:**
+- AVCS typically enables after ~30-60 seconds
+- Oil pressure required for AVCS actuation
+- Timing must work without cam timing benefits
+- Cold engine more knock-resistant
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Affects cold start timing behavior
+- AVCS disabled limits engine optimization
+- Check AVCS status if table always active
+- AVCS fault codes require diagnosis
+- Cold weather extends AVCS-disabled period
+- Monitor for persistent AVCS disable conditions

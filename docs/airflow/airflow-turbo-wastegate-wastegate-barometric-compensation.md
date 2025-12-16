@@ -13,7 +13,11 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Adjusts wastegate duty based on barometric pressure (altitude) and RPM. At higher altitudes, the turbo must work harder to achieve target boost due to lower air density, requiring different wastegate duty cycles.
+
+Values are in PERCENT - negative values reduce wastegate duty at altitude, allowing the wastegate to open more easily. The data shows significant reductions (-20% to -45%) at low barometric pressures (high altitudes) across the RPM range.
+
+This compensation helps maintain consistent boost control behavior regardless of elevation, preventing over-boost at altitude where reduced back-pressure changes wastegate behavior.
 
 ## Axes
 
@@ -55,20 +59,45 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using barometric pressure and RPM:
+
+1. **Baro/RPM Reading**: ECU monitors both values
+2. **Table Lookup**: 2D interpolation for duty compensation
+3. **Duty Adjustment**: Applied as multiplier to wastegate duty
+
+**Compensation Logic:**
+- Sea level (~100 kPa): 0% adjustment
+- High altitude (~63 kPa): -20% to -45% adjustment
+- Reduces duty to prevent over-boost at altitude
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Wastegate - Duty Initial**: Base duty modified by this
+- **Airflow - Turbo - Wastegate - IAT Compensation**: Temperature adjustment
+- **Airflow - Turbo - Boost - Barometric Compensation**: Target adjustment
 
 ## Related Datalog Parameters
 
-- TBD
+- **Barometric Pressure (Pa/kPa)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **Wastegate Duty (%)**: Final commanded duty
+- **Altitude (calculated)**: Derived from barometric
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- May need adjustment for different turbo characteristics
+- Altitude-frequent drivers may need fine-tuning
+- Coordinate with boost barometric compensation
+
+**Considerations:**
+- Wastegate behavior changes significantly with altitude
+- Less back-pressure at altitude = wastegate opens easier
+- Compensation prevents over-boost in mountains
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Removing compensation can cause over-boost at altitude
+- Test at various altitudes before modifying
+- Mountain passes can quickly change conditions
+- Over-boost at altitude especially dangerous

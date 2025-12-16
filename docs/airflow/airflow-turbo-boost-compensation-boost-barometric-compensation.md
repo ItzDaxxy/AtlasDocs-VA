@@ -13,7 +13,15 @@
 
 ## Description
 
-*Add description of what this table controls and when it's used.*
+Adjusts boost target based on barometric pressure (altitude) and engine RPM. At higher altitudes, reduced atmospheric pressure affects turbo efficiency and knock threshold, requiring boost target adjustments.
+
+Values are in PERCENT - negative values reduce boost target, positive values increase it. The data shows significant reductions at lower barometric pressures (higher altitudes), especially at mid-to-high RPM where the turbo generates the most boost.
+
+**Altitude Effects:**
+- Lower air density reduces turbo efficiency
+- Less oxygen per boost unit requires target reduction
+- Knock threshold changes with altitude
+- Stock table reduces boost up to ~40% at high altitude
 
 ## Axes
 
@@ -55,20 +63,46 @@ First 8x8 corner of the table:
 
 ## Functional Behavior
 
-*Add description of how the ECU interpolates and uses this table.*
+The ECU performs 2D interpolation using barometric pressure and RPM:
+
+1. **Baro Reading**: ECU reads atmospheric pressure
+2. **RPM Reading**: ECU monitors engine RPM
+3. **Table Lookup**: 2D interpolation for compensation percentage
+4. **Target Adjustment**: Base Target × (1 + Compensation%)
+
+**Compensation Application:**
+- 96000 Pa (~sea level): 0% compensation
+- 63000 Pa (~12,000 ft): -25% to -40% compensation
+- Applied to boost target before wastegate control
 
 ## Related Tables
 
-- TBD
+- **Airflow - Turbo - Boost - Boost Target Main**: Base boost target
+- **Airflow - Turbo - Boost - Boost IAT Compensation**: Temperature adjustment
+- **Airflow - Turbo - Wastegate - Barometric Compensation**: Wastegate duty adjustment
 
 ## Related Datalog Parameters
 
-- TBD
+- **Barometric Pressure (Pa/kPa)**: X-axis input
+- **Engine RPM**: Y-axis input
+- **Target Boost**: Result after compensation
+- **Altitude (calculated)**: Derived from barometric
 
 ## Tuning Notes
 
-*Add practical tuning guidance and typical modification patterns.*
+**Common Modifications:**
+- Reduce compensation for less aggressive altitude derating
+- May need adjustment for different turbo characteristics
+- Consider E85's knock resistance at altitude
+
+**Considerations:**
+- Compensation protects engine at altitude
+- Higher altitude = less dense air = less cooling = more knock prone
+- Turbo must work harder for same boost at altitude
 
 ## Warnings
 
-*Add safety considerations and potential risks.*
+- Removing altitude compensation risks knock at elevation
+- Test at various altitudes before reducing compensation
+- Mountain driving can quickly change conditions
+- Monitor knock and AFR when adjusting these values
