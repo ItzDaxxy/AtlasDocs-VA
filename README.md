@@ -41,10 +41,6 @@ python scripts/convert.py tables/ignition
 python scripts/convert.py tables/ignition/primary-tgvs-closed.md
 ```
 
-### Viewing Documentation
-
-After conversion, open `output/html/index.html` in a browser.
-
 ## Table Documentation Format
 
 Each table document includes:
