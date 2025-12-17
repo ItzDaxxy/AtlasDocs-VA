@@ -15,10 +15,11 @@
 
 The primary boost target table that defines desired boost pressure based on requested torque and engine RPM. This is the main table controlling how much boost the turbocharger should produce at any given operating point.
 
-Values are in BAR (gauge pressure relative to atmospheric):
-- Negative values indicate vacuum (below atmospheric pressure)
-- Zero is atmospheric pressure
-- Positive values indicate boost pressure
+**IMPORTANT: Values are in PSI (gauge pressure), not BAR.**
+
+- Negative values indicate vacuum (e.g., -7 = 7 PSI vacuum)
+- Zero is atmospheric pressure (no boost)
+- Positive values indicate boost pressure in PSI
 
 The ECU uses this table to determine target manifold pressure, then commands the wastegate duty cycle to achieve that target. The boost control system (PI controller) works to minimize the error between actual and target boost.
 
@@ -40,7 +41,7 @@ The ECU uses this table to determine target manifold pressure, then commands the
 
 ## Cell Values
 
-- **Unit**: BAR
+- **Unit**: PSI (gauge pressure)
 - **Data Type**: Float
 
 ## Data Preview
@@ -109,7 +110,7 @@ Target (this table) → Error = Target - Actual → PI Controller → Wastegate 
 3. Ensure fuel system can support increased airflow
 4. Verify turbo is capable of requested boost levels
 
-**Stock Peak Boost:** ~0.9-1.0 bar (13-15 psi) at peak
+**Stock Peak Boost:** ~15-20 PSI at peak (varies by calibration)
 
 ## Warnings
 

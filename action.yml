@@ -1,0 +1,81 @@
+name: 'FA20 Datalog Analyzer'
+description: 'Analyze Subaru FA20 WRX datalogs from Atlas tuning software'
+author: 'Atlas Tuning'
+
+branding:
+  icon: 'activity'
+  color: 'blue'
+
+inputs:
+  datalog-path:
+    description: 'Path to the datalog CSV file'
+    required: true
+  output-format:
+    description: 'Output format: json, markdown, or both'
+    required: false
+    default: 'both'
+  fail-on-critical:
+    description: 'Fail the action if CRITICAL issues are found'
+    required: false
+    default: 'true'
+
+outputs:
+  status:
+    description: 'Analysis status (OK, HIGH, CRITICAL)'
+    value: ${{ steps.analyze.outputs.status }}
+  issues-count:
+    description: 'Total number of issues found'
+    value: ${{ steps.analyze.outputs.issues_count }}
+  report-json:
+    description: 'Path to JSON report file'
+    value: ${{ steps.analyze.outputs.report_json }}
+  report-markdown:
+    description: 'Path to Markdown report file'
+    value: ${{ steps.analyze.outputs.report_md }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Run FA20 Analysis
+      id: analyze
+      shell: bash
+      run: |
+        DATALOG="${{ inputs.datalog-path }}"
+        BASENAME=$(basename "$DATALOG" .csv)
+        REPORT_JSON="${BASENAME}-report.json"
+        REPORT_MD="${BASENAME}-report.md"
+
+        # Run the analyzer
+        python ${{ github.action_path }}/fa20_analyzer/analyzer.py "$DATALOG" --output "$REPORT_JSON" --markdown > "$REPORT_MD"
+        EXIT_CODE=$?
+
+        # Parse results
+        if [ "$EXIT_CODE" -eq 2 ]; then
+          echo "status=CRITICAL" >> $GITHUB_OUTPUT
+        elif [ "$EXIT_CODE" -eq 1 ]; then
+          echo "status=HIGH" >> $GITHUB_OUTPUT
+        else
+          echo "status=OK" >> $GITHUB_OUTPUT
+        fi
+
+        # Count issues from JSON
+        if [ -f "$REPORT_JSON" ]; then
+          ISSUES=$(python -c "import json; print(len(json.load(open('$REPORT_JSON'))['issues']))")
+          echo "issues_count=$ISSUES" >> $GITHUB_OUTPUT
+        fi
+
+        echo "report_json=$REPORT_JSON" >> $GITHUB_OUTPUT
+        echo "report_md=$REPORT_MD" >> $GITHUB_OUTPUT
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+    - name: Check Critical Issues
+      if: inputs.fail-on-critical == 'true' && steps.analyze.outputs.status == 'CRITICAL'
+      shell: bash
+      run: |
+        echo "::error::CRITICAL issues detected in datalog!"
+        exit 1

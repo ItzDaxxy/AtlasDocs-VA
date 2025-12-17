@@ -15,7 +15,9 @@
 
 Defines the maximum allowable boost pressure (safety limit) based on engine RPM. This table sets an absolute ceiling for manifold pressure that the ECU will not allow the boost control system to exceed, regardless of what the Target Boost table requests.
 
-Values are in BAR (gauge pressure). The Boost Limit acts as the final safety check in the boost control system, protecting the engine from dangerous over-boost conditions that could cause mechanical failure.
+**IMPORTANT: Values are in PSI (gauge pressure), not BAR.**
+
+The Boost Limit acts as the final safety check in the boost control system, protecting the engine from dangerous over-boost conditions that could cause mechanical failure.
 
 **Boost Control Hierarchy:**
 1. Boost Target (what you want)
@@ -38,7 +40,7 @@ Values are in BAR (gauge pressure). The Boost Limit acts as the final safety che
 
 ## Cell Values
 
-- **Unit**: BAR
+- **Unit**: PSI (gauge pressure)
 - **Data Type**: Float
 
 ## Data Preview

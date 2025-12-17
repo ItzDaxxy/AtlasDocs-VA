@@ -1,0 +1,8 @@
+.claude
+*claude*/
+*.code-workspace
+*.pyc
+*__pycache__/
+*.local.json
+*.csv
+*.png
