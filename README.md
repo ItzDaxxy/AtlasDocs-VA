@@ -1,83 +1,160 @@
-# Atlas ECU Table Documentation
+# FA20DIT Atlas ECU Documentation & Datalog Analyzer
 
-Comprehensive table-by-table documentation for the Atlas ECU tuning software.
+Documentation and analysis tools for Subaru FA20DIT engines (2015-2021 WRX) tuned with Atlas ECU software.
+
+> ⚠️ **Unofficial Resource**: This project is not affiliated with, endorsed by, or supported by Atlas ECU or any official tuning organization. All documentation is community-sourced and provided as-is for educational purposes.
+
+## Overview
+
+This repository contains:
+
+- **ECU Table Documentation** - Reference docs for Atlas ECU tables organized by domain (fuel, ignition, AVCS, etc.)
+- **Datalog Analyzer** - CLI tool and GitHub Action for analyzing FA20 datalogs
+- **Tuning History** - Templates for tracking ECU changes and analysis results
 
 ## Structure
 
 ```
 atlas-docs/
-├── tables/              # Markdown source files organized by category
-│   ├── avcs/            # AVCS - Variable valve timing control
-│   ├── airflow/         # Airflow - MAF/airflow calculations
-│   ├── analytical/      # Analytical - Diagnostic/analysis tables
-│   ├── engine/          # Engine - Core engine parameters
-│   ├── fuel/            # Fuel - Fuel injection/delivery
-│   ├── ignition/        # Ignition - Spark timing tables
-│   ├── patches/         # Patches - ROM patches/modifications
-│   ├── pids/            # PIDs - OBD-II Parameter IDs
-│   ├── sensors/         # Sensors - Sensor scaling/calibration
-│   ├── throttle/        # Throttle - Electronic throttle control
-│   ├── transmission/    # Transmission - Gearbox tables
-│   └── vdc/             # VDC - Vehicle Dynamics Control
+├── docs/                # ECU table documentation by category
+│   ├── fuel/            # Fuel injection, AFR targets, trims
+│   ├── ignition/        # Spark timing, knock thresholds
+│   ├── avcs/            # Variable valve timing
+│   ├── airflow/         # MAF, load calculations
+│   ├── engine/          # Core engine parameters
+│   ├── sensors/         # Sensor scaling/calibration
+│   ├── throttle/        # Electronic throttle control
+│   ├── transmission/    # Gearbox tables
+│   └── tuning-history/  # Analysis logs, ECU change history
+├── bin/                 # CLI tools
+│   └── fa20amp-analyze  # Datalog analyzer
 ├── templates/           # Documentation templates
 ├── scripts/             # Conversion utilities
-├── screenshots/         # Source screenshots from Atlas
-└── output/              # Generated documentation
-    ├── html/            # HTML format
-    └── json/            # JSON format (machine-readable)
+└── output/              # Generated documentation (HTML/JSON)
 ```
 
-## Usage
+## Datalog Analyzer
 
-### Adding a New Table
+Analyzes Atlas datalog CSV exports for fuel trims, knock, DAM, AFR, and engine health.
 
-1. Take a screenshot of the table in Atlas
-2. Place it in `screenshots/`
-3. Create a markdown file in the appropriate `tables/` subdirectory
-4. Use the template from `templates/table-template.md`
-5. Run the converter
-
-### Converting to HTML/JSON
+### CLI Usage
 
 ```bash
-# Convert all tables
+# Analyze a single datalog
+python bin/fa20amp-analyze path/to/datalog.csv
+
+# Analyze multiple datalogs
+python bin/fa20amp-analyze log1.csv log2.csv log3.csv
+```
+
+**Requirements:** Python 3.11+, pandas (`pip install pandas`)
+
+**Output:**
+- Color-coded terminal report with issues by severity
+- JSON report saved alongside input file (`*_analysis.json`)
+
+### Analysis Domains
+
+| Domain | Parameters Analyzed |
+|--------|---------------------|
+| **Fuel** | STFT, LTFT, AFR (λ), MAF-binned trims |
+| **Ignition** | Feedback Knock, Fine Knock Learn, DAM |
+| **Engine** | Coolant temp, oil temp, throttle position |
+
+### Thresholds
+
+| Parameter | OK | Warning | Critical |
+|-----------|-----|---------|----------|
+| STFT/LTFT | ±5% | ±10% | >10% |
+| DAM | ≥0.95 | 0.75-0.95 | <0.75 |
+| Knock Retard | 0-2° | 2-5° | >5° |
+
+## GitHub Action
+
+Use the analyzer as a GitHub Action in your own workflows.
+
+### Workflow Example
+
+```yaml
+name: Analyze Datalog
+
+on:
+  push:
+    paths:
+      - 'datalogs/**/*.csv'
+  workflow_dispatch:
+    inputs:
+      datalog_path:
+        description: 'Path to datalog CSV'
+        required: true
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run FA20 Analysis
+        uses: ItzDaxxy/AtlasDocs-VA@main
+        with:
+          datalog-path: ${{ github.event.inputs.datalog_path || 'datalogs/latest.csv' }}
+          fail-on-critical: 'true'
+```
+
+### Action Inputs
+
+| Input | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `datalog-path` | Yes | - | Path to datalog CSV file |
+| `fail-on-critical` | No | `false` | Fail workflow on critical issues |
+| `fail-on-high` | No | `false` | Fail workflow on high priority issues |
+
+### Action Outputs
+
+| Output | Description |
+|--------|-------------|
+| `exit-code` | 0=ok, 1=high issues, 2=critical issues |
+| `report-path` | Path to generated JSON report |
+| `issues-found` | Number of issues detected |
+
+## Sample Datalog
+
+Minimal CSV structure for testing:
+
+```csv
+Time,AF Correction STFT (%),AF Learning Long Term (%),AF Ratio,Feedback Knock (°),Fine Knock Learn (°),Dynamic Advance Multiplier,Coolant Temp (°C),Mass Airflow Corrected (g/s)
+0.000,-1.2,-3.5,1.001,0.00,0.00,1.00,88,4.2
+0.033,-0.8,-3.5,0.998,0.00,0.00,1.00,88,4.5
+0.066,-1.5,-3.5,1.003,-1.41,0.00,1.00,89,5.1
+0.099,-0.5,-3.5,0.997,0.00,0.00,1.00,89,4.8
+```
+
+## Converting Documentation
+
+Generate HTML or JSON from markdown docs:
+
+```bash
+# Convert all documentation
 python scripts/convert.py
 
 # Convert specific category
-python scripts/convert.py tables/ignition
+python scripts/convert.py docs/ignition
 
-# Convert single file
-python scripts/convert.py tables/ignition/primary-tgvs-closed.md
+# View in browser
+open output/html/index.html
 ```
-
-### Viewing Documentation
-
-After conversion, open `output/html/index.html` in a browser.
-
-## Table Documentation Format
-
-Each table document includes:
-
-- **Overview**: Category, platform, data type, ROM address
-- **Description**: What the table does
-- **Axes**: X and Y axis parameters, units, ranges
-- **Cell Values**: Units, data type, valid ranges
-- **Functional Behavior**: How the ECU uses this table
-- **Related Tables**: Tables that interact with this one
-- **Related Parameters**: Datalog parameters to monitor
-- **Tuning Notes**: Practical tuning guidance
-- **Warnings**: Safety considerations
 
 ## Platform
 
-Currently documenting: **VA WRX (2015-2021)** with FA20DIT engine
+**Supported:** VA WRX (2015-2021) with FA20DIT engine
 
-## Contributing
+## Disclaimer
 
-When documenting a table:
+This documentation is provided for educational purposes only. Improper ECU tuning can cause engine damage, void warranties, and create unsafe conditions. Always:
 
-1. Verify the table name matches Atlas exactly
-2. Include accurate axis information
-3. Document safe operating ranges
-4. Note any table dependencies
-5. Add relevant datalog parameters
+- Work with a qualified tuner
+- Use appropriate safety margins
+- Monitor datalogs for anomalies
+- Never exceed safe mechanical limits
+
+**Use at your own risk.**

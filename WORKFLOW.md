@@ -1,127 +1,145 @@
-# Atlas ECU Documentation Workflow
+# Datalog Analysis Workflow
 
 ## Overview
 
-This workflow allows you to export tables from Atlas as CSV and automatically generate comprehensive markdown documentation.
+This workflow enables automated analysis of FA20DIT datalogs from Atlas ECU software, either locally via CLI or through GitHub Actions.
 
-## Tools Created
+## Local Analysis
 
-### 1. Atlas Launcher (`launch-atlas.sh`)
-Fixes the Java version issue to launch Atlas with the bundled JRE.
-
-```bash
-./launch-atlas.sh
-```
-
-### 2. CSV Parser (`scripts/parse_atlas_csv.py`)
-Parses Atlas CSV exports and generates markdown documentation.
-
-#### Parse a single CSV file:
-```bash
-python3 scripts/parse_atlas_csv.py path/to/table.csv
-```
-
-#### Parse an entire directory:
-```bash
-python3 scripts/parse_atlas_csv.py tables/avcs/
-```
-
-### 3. Documentation Converter (`scripts/convert.py`)
-Converts markdown to HTML and JSON formats.
+### Prerequisites
 
 ```bash
-python3 scripts/convert.py
+pip install pandas
 ```
 
-## Complete Workflow
-
-### Step 1: Export Tables from Atlas
-
-1. Launch Atlas: `./launch-atlas.sh`
-2. Open your ROM/project
-3. For each table:
-   - Right-click → Export → CSV
-   - Save to appropriate category folder in `tables/`
-   - Example: `tables/avcs/Intake/table-name.csv`
-
-### Step 2: Generate Documentation
+### Analyze a Datalog
 
 ```bash
-# Parse all CSV files in a category
-python3 scripts/parse_atlas_csv.py tables/avcs/
-
-# Or parse entire tables directory
-python3 scripts/parse_atlas_csv.py tables/
+python bin/fa20amp-analyze path/to/datalog.csv
 ```
 
-### Step 3: Convert to HTML/JSON
+### Output
+
+1. **Terminal Report** - Color-coded summary with issues by severity
+2. **JSON Report** - Machine-readable analysis saved as `*_analysis.json`
+
+### Example Output
+
+```
+============================================================
+FA20 DATALOG ANALYSIS
+============================================================
+File: 2025-12-17T11-08-58.csv
+Loading... 29828 samples (~16.4 min)
+
+ISSUES
+----------------------------------------
+[CRITICAL] [IGNITION] Significant knock: -5.6° retard, 1135 events
+[HIGH] [FUEL] Lean AFR detected: max λ=1.508
+
+FUEL TRIMS
+----------------------------------------
+STFT: -0.24% (range: -27.5% to +8.8%)
+LTFT: -3.95% (range: -9.0% to 0.0%)
+
+IGNITION
+----------------------------------------
+DAM: 1.00
+Knock: 1135 events, max -5.6° retard
+FKL: 0.0°
+
+Report saved: 2025-12-17T11-08-58_analysis.json
+```
+
+## GitHub Actions Workflow
+
+### Automatic Analysis on Push
+
+Add datalogs to a `datalogs/` directory and push - the workflow triggers automatically.
+
+### Manual Analysis
+
+1. Go to **Actions** → **FA20 Datalog Analysis**
+2. Click **Run workflow**
+3. Enter the path to your datalog CSV
+4. Optionally enable "Fail on critical issues"
+
+### PR Integration
+
+When datalogs are added via pull request, the analysis results are automatically posted as a PR comment.
+
+## Tracking Results
+
+### Analysis Log
+
+Track all analyses in `docs/tuning-history/analysis-log.json`:
+
+```json
+{
+  "analyses": [
+    {
+      "id": "2025-12-18_001",
+      "datalog": "2025-12-17T11-08-58.csv",
+      "critical_findings": [...],
+      "fuel_summary": {...},
+      "ignition_summary": {...},
+      "recommendations": [...],
+      "status": "reviewed"
+    }
+  ]
+}
+```
+
+### ECU Config History
+
+Track ECU changes and mechanical issues in `docs/tuning-history/ecu-config-history.json`:
+
+```json
+{
+  "mechanical_issues": [
+    {
+      "id": "MECH-2025-12-18_001",
+      "status": "investigating",
+      "category": "exhaust",
+      "symptoms": ["Rhythmic poof sound under acceleration"],
+      "inspection_checklist": [...]
+    }
+  ],
+  "changes": []
+}
+```
+
+## Interpreting Results
+
+### Severity Levels
+
+| Severity | Action Required |
+|----------|-----------------|
+| **CRITICAL** | Immediate attention - potential engine damage |
+| **HIGH** | Address soon - significant deviation from targets |
+| **MEDIUM** | Monitor - minor corrections may help |
+| **LOW/INFO** | Informational - no action needed |
+
+### Common Issues
+
+| Issue | Likely Cause | Action |
+|-------|--------------|--------|
+| STFT/LTFT >10% | MAF scaling off | Adjust MAF table |
+| DAM <0.75 | Real knock | Check fuel, timing, boost |
+| Knock with DAM=1.0, FKL=0° | False knock | Check exhaust, heat shields |
+| Lean AFR at WOT | Insufficient fueling | Check injector scaling, fuel pressure |
+
+## Converting Documentation
+
+Generate browsable HTML or JSON from the markdown docs:
 
 ```bash
-python3 scripts/convert.py
+# Convert all docs
+python scripts/convert.py
+
+# Convert single category
+python scripts/convert.py docs/fuel
+
+# View
+open output/html/index.html
 ```
-
-### Step 4: View Documentation
-
-Open `output/html/index.html` in your browser to browse all documentation.
-
-## Directory Structure
-
-```
-atlas-docs/
-├── tables/              # Source markdown + CSV files
-│   ├── avcs/            # 28 tables documented
-│   ├── ignition/
-│   ├── fuel/
-│   └── ...
-├── screenshots/         # Optional: table screenshots
-├── output/
-│   ├── html/            # Generated HTML docs
-│   └── json/            # Generated JSON (API-ready)
-└── scripts/
-    ├── parse_atlas_csv.py
-    └── convert.py
-```
-
-## What Gets Generated
-
-For each table, the parser creates markdown with:
-
-- **Overview**: Category, platform, dimensions, units
-- **Description**: What the table controls (fill in manually)
-- **Axes**: X/Y axis parameters, ranges, units
-- **Cell Values**: Data type, units, typical ranges
-- **Data Preview**: First 8x8 corner of the table
-- **Functional Behavior**: How ECU uses it (fill in manually)
-- **Related Tables**: Dependencies (fill in manually)
-- **Related Datalog Parameters**: What to monitor (fill in manually)
-- **Tuning Notes**: Practical guidance (fill in manually)
-- **Warnings**: Safety considerations (fill in manually)
-
-## Progress
-
-### ✓ Completed
-- **AVCS**: 28 tables (3 scalars + 25 3D maps)
-  - Intake cam tables (TGV Open/Closed, High/Low baro)
-  - Exhaust cam tables (TGV Open/Closed, High/Low baro)
-  - Activation speed parameters
-
-### 🔄 Next Categories
-- Ignition (timing tables)
-- Fuel (injection, AFR targets)
-- Airflow (MAF, load calculation)
-- Engine (limiters, operating parameters)
-- Throttle (pedal mapping)
-- Sensors (scaling tables)
-- Transmission
-- VDC
-- Analytical
-- Patches
-- PIDs
-
-## Tips
-
-1. **Export systematically**: Work through one category at a time
-2. **Organize folders**: Match Atlas's tree structure
-3. **Fill in descriptions**: Parser creates templates - add technical details
-4. **Cross-reference**: Link related tables together
-5. **Add datalog params**: Specify what to monitor when tuning
