@@ -15,10 +15,15 @@ __pycache__/
 # Local/temp files
 *.local.json
 .DS_Store
+**/.DS_Store
 
 # Data files (keep in separate location)
 datalogs/
 *.skill
+
+# Personal tuning data
+docs/tuning-history/analyses/
+docs/tuning-history/analysis-log.json
 
 # Keep bin/ tracked for GitHub Action
 !bin/
