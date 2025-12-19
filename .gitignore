@@ -1,8 +1,33 @@
-.claude
+# Claude/Amp
+.claude/
 *claude*/
+.agents/
+
+# VS Code
+.vscode/
 *.code-workspace
+
+# Python
 *.pyc
-*__pycache__/
+__pycache__/
+*.egg-info/
+
+# Local/temp files
 *.local.json
-*.csv
+.DS_Store
+
+# Data files (keep in separate location)
+datalogs/
+*.skill
+
+# Keep bin/ tracked for GitHub Action
+!bin/
+
+# Images
 *.png
+
+# Other
+AGENTS.md
+FA20-ANALYZER.md
+fa20_analyzer/
+requirements.txt

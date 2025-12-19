@@ -1,6 +1,6 @@
 name: 'FA20 Datalog Analyzer'
-description: 'Analyze Subaru FA20 WRX datalogs from Atlas tuning software'
-author: 'Atlas Tuning'
+description: 'Analyze Subaru FA20DIT datalogs from Atlas ECU tuning software'
+author: 'AtlasDocs'
 
 branding:
   icon: 'activity'
@@ -8,30 +8,27 @@ branding:
 
 inputs:
   datalog-path:
-    description: 'Path to the datalog CSV file'
+    description: 'Path to the datalog CSV file to analyze'
     required: true
-  output-format:
-    description: 'Output format: json, markdown, or both'
-    required: false
-    default: 'both'
   fail-on-critical:
-    description: 'Fail the action if CRITICAL issues are found'
+    description: 'Fail the action if critical issues are found'
     required: false
-    default: 'true'
+    default: 'false'
+  fail-on-high:
+    description: 'Fail the action if high priority issues are found'
+    required: false
+    default: 'false'
 
 outputs:
-  status:
-    description: 'Analysis status (OK, HIGH, CRITICAL)'
-    value: ${{ steps.analyze.outputs.status }}
-  issues-count:
-    description: 'Total number of issues found'
+  exit-code:
+    description: 'Exit code (0=ok, 1=high issues, 2=critical issues)'
+    value: ${{ steps.analyze.outputs.exit_code }}
+  report-path:
+    description: 'Path to the JSON analysis report'
+    value: ${{ steps.analyze.outputs.report_path }}
+  issues-found:
+    description: 'Number of issues found'
     value: ${{ steps.analyze.outputs.issues_count }}
-  report-json:
-    description: 'Path to JSON report file'
-    value: ${{ steps.analyze.outputs.report_json }}
-  report-markdown:
-    description: 'Path to Markdown report file'
-    value: ${{ steps.analyze.outputs.report_md }}
 
 runs:
   using: 'composite'
@@ -41,41 +38,41 @@ runs:
       with:
         python-version: '3.11'
 
-    - name: Run FA20 Analysis
+    - name: Install dependencies
+      shell: bash
+      run: pip install pandas
+
+    - name: Run Analysis
       id: analyze
       shell: bash
       run: |
-        DATALOG="${{ inputs.datalog-path }}"
-        BASENAME=$(basename "$DATALOG" .csv)
-        REPORT_JSON="${BASENAME}-report.json"
-        REPORT_MD="${BASENAME}-report.md"
-
-        # Run the analyzer
-        python ${{ github.action_path }}/fa20_analyzer/analyzer.py "$DATALOG" --output "$REPORT_JSON" --markdown > "$REPORT_MD"
-        EXIT_CODE=$?
-
-        # Parse results
-        if [ "$EXIT_CODE" -eq 2 ]; then
-          echo "status=CRITICAL" >> $GITHUB_OUTPUT
-        elif [ "$EXIT_CODE" -eq 1 ]; then
-          echo "status=HIGH" >> $GITHUB_OUTPUT
-        else
-          echo "status=OK" >> $GITHUB_OUTPUT
-        fi
-
-        # Count issues from JSON
-        if [ -f "$REPORT_JSON" ]; then
-          ISSUES=$(python -c "import json; print(len(json.load(open('$REPORT_JSON'))['issues']))")
+        python ${{ github.action_path }}/bin/fa20amp-analyze "${{ inputs.datalog-path }}" | tee output.txt
+        EXIT_CODE=${PIPESTATUS[0]}
+        
+        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+        
+        # Get report path
+        REPORT="${{ inputs.datalog-path }}"
+        REPORT="${REPORT%.csv}_analysis.json"
+        echo "report_path=$REPORT" >> $GITHUB_OUTPUT
+        
+        # Count issues
+        if [ -f "$REPORT" ]; then
+          ISSUES=$(python -c "import json; print(len(json.load(open('$REPORT'))['issues']))")
           echo "issues_count=$ISSUES" >> $GITHUB_OUTPUT
         fi
 
-        echo "report_json=$REPORT_JSON" >> $GITHUB_OUTPUT
-        echo "report_md=$REPORT_MD" >> $GITHUB_OUTPUT
-        echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
-
-    - name: Check Critical Issues
-      if: inputs.fail-on-critical == 'true' && steps.analyze.outputs.status == 'CRITICAL'
+    - name: Check failure conditions
       shell: bash
       run: |
-        echo "::error::CRITICAL issues detected in datalog!"
-        exit 1
+        EXIT_CODE=${{ steps.analyze.outputs.exit_code }}
+        
+        if [ "${{ inputs.fail-on-critical }}" = "true" ] && [ "$EXIT_CODE" = "2" ]; then
+          echo "::error::Critical issues found in datalog"
+          exit 1
+        fi
+        
+        if [ "${{ inputs.fail-on-high }}" = "true" ] && [ "$EXIT_CODE" -ge "1" ]; then
+          echo "::error::High priority issues found in datalog"
+          exit 1
+        fi
