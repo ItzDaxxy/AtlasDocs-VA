@@ -71,9 +71,16 @@ python bin/fa20amp-analyze log1.csv log2.csv log3.csv
 
 ## GitHub Action
 
-Use the analyzer as a GitHub Action in your own workflows.
+### Quick Analysis (Upload via Issue)
 
-### Workflow Example
+1. [Open a new issue](../../issues/new?title=Analyze%20my%20datalog&body=Drag%20and%20drop%20your%20CSV%20file%20here)
+2. Drag and drop your datalog CSV into the issue body
+3. Submit the issue
+4. Wait for the bot to post analysis results as a comment
+
+No account setup required—just attach your CSV!
+
+### Use in Your Own Workflows
 
 ```yaml
 name: Analyze Datalog
