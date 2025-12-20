@@ -16,7 +16,7 @@ This repository contains:
 ## Quick Start
 
 ```bash
-# Initialize a new tuning project
+# Initialize a new tuning project (interactive mod list intake)
 ./scripts/setup_tuning_project.sh ~/my-wrx-tune
 
 # Analyze WOT and cruise datalogs
@@ -27,6 +27,66 @@ python scripts/analyze_datalog.py datalog.csv
 ```
 
 **Requirements:** Python 3.11+, pandas (`pip install pandas`)
+
+## New Project Setup Flow
+
+When you run `setup_tuning_project.sh`, you'll go through an interactive setup that:
+
+1. **Gathers your mod list** - Turbo, intercooler, downpipe, intake, EBCS, flex fuel, etc.
+2. **Asks about fuel system** - Injectors, fuel pump, fuel grade (91/93/E85)
+3. **Sets boost targets** - Peak boost PSI, redline RPM
+4. **Evaluates conditions** - Street/track use, climate, altitude
+5. **Calculates safety margins** - Based on YOUR specific build
+
+### Example Setup Session
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                     FA20 DIT TUNING PROJECT SETUP                            ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+Vehicle Year: 2017
+Model: WRX
+
+Turbo (stock/upgraded) [stock]: stock
+Intercooler (stock/TMIC/FMIC) [stock]: FMIC
+Downpipe (stock/catted/catless) [stock]: catted
+Intake (stock/aftermarket) [stock]: aftermarket
+EBCS (stock/3-port) [stock]: 3-port
+Flex Fuel kit installed? (Y/N) [N]: N
+
+Fuel grade typically used (91/93/E85) [93]: 93
+Target peak boost (psi) [20]: 21
+
+CALCULATING SAFETY MARGINS...
+
+  ✓  Catted downpipe: Better flow, monitor EGTs
+  ✓  3-port EBCS: Tighter boost control, reduced margin needed
+
+CALCULATED SAFETY MARGINS FOR YOUR BUILD:
+──────────────────────────────────────────
+  Timing Margin:    2° (pull this much from aggressive maps)
+  WOT AFR Target:   10.8:1 (lambda ~0.735)
+  Boost Margin:     +0 psi (keep this buffer from target)
+  DAM Minimum:      1.00 (never accept less)
+```
+
+### Safety Margin Logic
+
+The setup script calculates margins based on risk factors:
+
+| Mod/Condition | Effect | Reason |
+|---------------|--------|--------|
+| Stock intercooler + mods | +1° timing margin | Heat soak risk |
+| 91 octane fuel | +2° timing, richer AFR | Lower knock resistance |
+| E85 fuel | -1° timing margin | Excellent knock resistance |
+| Hot climate | +1° timing margin | Higher IATs |
+| High altitude | +1 psi boost margin | Turbo works harder |
+| Track use | +1° timing, richer AFR | Sustained WOT heat |
+| Stock EBCS | +1 psi boost margin | Slower boost response |
+| 3-port EBCS | No boost margin needed | Precise control |
+
+The output `vehicle_config.yaml` contains all your settings and calculated thresholds for the analyzer to use.
 
 ## What the Analyzer Produces
 
@@ -213,7 +273,7 @@ This documentation is provided for educational purposes only. Improper ECU tunin
 - Monitor datalogs for anomalies
 - Never exceed safe mechanical limits
 
-**Use at your own risk.**
+**Use at your own risk.** We are not responsible for blown engines. We've never seen one yet, but if you give bad inputs, you'll get bad outputs. You've been warned—use your head.
 
 ---
 
