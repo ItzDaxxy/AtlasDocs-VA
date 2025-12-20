@@ -9,65 +9,165 @@ Documentation and analysis tools for Subaru FA20DIT engines (2015-2021 WRX) tune
 This repository contains:
 
 - **ECU Table Documentation** - Reference docs for Atlas ECU tables organized by domain (fuel, ignition, AVCS, etc.)
-- **Datalog Analyzer** - CLI tool and GitHub Action for analyzing FA20 datalogs
-- **Tuning History** - Templates for tracking ECU changes and analysis results
+- **Datalog Analyzer** - Comprehensive analysis tool generating pandas-formatted tuning reports
+- **Tuning Workflow** - Complete dial-in process with table corrections and math
+- **AI Tuning Agent** - AGENTS.md instructions for AI-assisted datalog analysis
 
-## Structure
-
-```
-atlas-docs/
-├── docs/                # ECU table documentation by category
-│   ├── fuel/            # Fuel injection, AFR targets, trims
-│   ├── ignition/        # Spark timing, knock thresholds
-│   ├── avcs/            # Variable valve timing
-│   ├── airflow/         # MAF, load calculations
-│   ├── engine/          # Core engine parameters
-│   ├── sensors/         # Sensor scaling/calibration
-│   ├── throttle/        # Electronic throttle control
-│   ├── transmission/    # Gearbox tables
-│   └── tuning-history/  # Analysis logs, ECU change history
-├── bin/                 # CLI tools
-│   └── fa20amp-analyze  # Datalog analyzer
-├── templates/           # Documentation templates
-├── scripts/             # Conversion utilities
-└── output/              # Generated documentation (HTML/JSON)
-```
-
-## Datalog Analyzer
-
-Analyzes Atlas datalog CSV exports for fuel trims, knock, DAM, AFR, and engine health.
-
-### CLI Usage
+## Quick Start
 
 ```bash
-# Analyze a single datalog
-python bin/fa20amp-analyze path/to/datalog.csv
+# Initialize a new tuning project
+./scripts/setup_tuning_project.sh ~/my-wrx-tune
 
-# Analyze multiple datalogs
-python bin/fa20amp-analyze log1.csv log2.csv log3.csv
+# Analyze WOT and cruise datalogs
+python scripts/analyze_datalog.py --wot datalogs/wot.csv --cruise datalogs/cruise.csv
+
+# Or analyze a single datalog
+python scripts/analyze_datalog.py datalog.csv
 ```
 
 **Requirements:** Python 3.11+, pandas (`pip install pandas`)
 
-**Output:**
-- Color-coded terminal report with issues by severity
-- JSON report saved alongside input file (`*_analysis.json`)
+## What the Analyzer Produces
 
-### Analysis Domains
+The analyzer generates a comprehensive tuning report with:
 
-| Domain | Parameters Analyzed |
-|--------|---------------------|
-| **Fuel** | STFT, LTFT, AFR (λ), MAF-binned trims |
-| **Ignition** | Feedback Knock, Fine Knock Learn, DAM |
-| **Engine** | Coolant temp, oil temp, throttle position |
+### Executive Summary
+```
+   Parameter     Value Threshold   Status
+             DAM  1.00    ≥0.95    ✅ Perfect
+  Feedback Knock  0.00       0°   ✅ No knock
+Fine Knock Learn  0.00       0°      ✅ Clean
+            LTFT -0.39      ±5%         ✅ OK
+```
 
-### Thresholds
+### STFT Histogram with Visual Bars
+```
+  Range     Count  Pct                    Histogram
+    < -10%    58   2.1                               █
+ -5 to -3%   226   8.1                          ██████
+  -3 to 0%  1664  59.9 ███████████████████████████████
+  0 to +3%   438  15.8                    ████████████
+```
 
-| Parameter | OK | Warning | Critical |
-|-----------|-----|---------|----------|
-| STFT/LTFT | ±5% | ±10% | >10% |
+### Fuel Trim Analysis by MAF Range
+```
+ MAF Range   STFT   LTFT  Combined  Status   Samples
+   0-10 g/s -0.14% +0.39%  +0.25%      ✅ OK   1234
+100-150 g/s -1.14% -3.54%  -4.68%  ⚠️ Minor    294
+```
+
+### Power Enrichment Analysis (WOT)
+```
+      RPM Lambda    AFR   STFT     Status
+4000-4500  0.741 10.9:1  +3.0%  ⚠️ Monitor
+4500-5000  0.742 10.9:1 +10.1%     ❌ Lean
+```
+
+### Math & Calculations
+Shows the actual formulas and calculations:
+- Fuel trim correction methodology
+- PE (φ) enrichment calculations with examples
+- Boost target conversions (psi ↔ bar)
+- Knock threshold reference table
+
+### Revised Tables for Atlas Import
+Ready-to-import corrected tables:
+- **Boost Target Main** - With psi reductions applied
+- **MAF Scaling** - Conservative corrections preserving rich bias
+- **PE Target** - Enriched high-RPM cells
+
+### Action Items Checklist
+```
+Priority   Category                                      Item     Status
+       1     Safety                        DAM stable at 1.00 ✅ Complete
+       2      Boost Import revised Boost Target Main (-1 psi)  ☐ Pending
+       3       Fuel  Import revised PE Target (4000-5500 RPM)  ☐ Pending
+```
+
+## Project Structure
+
+```
+atlas-docs/
+├── docs/                  # ECU table documentation by category
+│   ├── fuel/              # Fuel injection, AFR targets, trims
+│   ├── ignition/          # Spark timing, knock thresholds
+│   ├── avcs/              # Variable valve timing
+│   ├── airflow/           # MAF, boost control, wastegate
+│   ├── engine/            # Core engine parameters
+│   ├── sensors/           # Sensor scaling/calibration
+│   ├── throttle/          # Electronic throttle control
+│   └── transmission/      # Gearbox tables
+├── scripts/
+│   ├── analyze_datalog.py # Main analysis script
+│   └── setup_tuning_project.sh  # Project initializer
+├── samples/               # Example datalogs
+├── output/                # Generated reports
+├── AGENTS.md              # AI tuning agent instructions
+└── WORKFLOW.md            # Tuning workflow documentation
+```
+
+## Tuning Workflow
+
+### 1. Collect Datalogs
+Export from Atlas:
+- **WOT pulls** - 3rd gear, 3000-6000 RPM, full throttle
+- **Cruise** - Highway steady-state, light throttle
+
+### 2. Run Analysis
+```bash
+python scripts/analyze_datalog.py --wot wot.csv --cruise cruise.csv
+```
+
+### 3. Review Report
+Check the generated `FA20_Tuning_Report.txt` for:
+- DAM/FBK/FKL status (must be green)
+- STFT distribution (should center around 0%)
+- MAF range fuel trims (identify scaling issues)
+- WOT AFR by RPM (identify PE table issues)
+- Boost overshoot (adjust targets if needed)
+
+### 4. Apply Corrections
+Import revised tables to Atlas:
+- Conservative MAF scaling (preserves 2-3% rich bias for cylinder protection)
+- Enriched PE targets for high-RPM WOT
+- Reduced boost targets if overshooting
+
+### 5. Validate
+Log again and verify:
+- STFT within ±5% across all ranges
+- DAM stays at 1.00
+- No knock events
+- Boost hitting new targets
+
+## Key Thresholds
+
+| Parameter | Green | Yellow | Red |
+|-----------|-------|--------|-----|
 | DAM | ≥0.95 | 0.75-0.95 | <0.75 |
-| Knock Retard | 0-2° | 2-5° | >5° |
+| Feedback Knock | 0° | -1° to -3° | <-3° |
+| Fine Knock Learn | 0° | -1° to -2° | <-2° |
+| STFT | ±5% | ±5-10% | >±10% |
+| LTFT | ±5% | ±5-10% | >±10% |
+
+## Key Formulas
+
+| Calculation | Formula |
+|-------------|---------|
+| Actual Fuel | `Commanded × (1 + STFT/100) × (1 + LTFT/100)` |
+| MAF Correction | `-1 × Combined Trim` |
+| AFR from Lambda | `Lambda × 14.7` |
+| AFR from φ | `14.7 / φ` |
+| psi to bar | `psi × 0.0689476` |
+| bar to psi | `bar × 14.5038` |
+| PE Enrichment | `New φ = Current φ × (1 + STFT/100)` |
+
+## Safety Guidelines
+
+1. **Always preserve rich bias** (2-3% negative trims) for cylinder protection under boost
+2. **Never zero out fuel trims completely** - some margin is intentional
+3. **DAM must stay at 1.00** - any drop requires immediate investigation
+4. **Log after every change** - verify corrections with new datalogs
 
 ## GitHub Action
 
@@ -78,8 +178,6 @@ python bin/fa20amp-analyze log1.csv log2.csv log3.csv
 3. Submit the issue
 4. Wait for the bot to post analysis results as a comment
 
-No account setup required—just attach your CSV!
-
 ### Use in Your Own Workflows
 
 ```yaml
@@ -89,11 +187,6 @@ on:
   push:
     paths:
       - 'datalogs/**/*.csv'
-  workflow_dispatch:
-    inputs:
-      datalog_path:
-        description: 'Path to datalog CSV'
-        required: true
 
 jobs:
   analyze:
@@ -104,51 +197,7 @@ jobs:
       - name: Run FA20 Analysis
         uses: ItzDaxxy/AtlasDocs-VA@main
         with:
-          datalog-path: ${{ github.event.inputs.datalog_path || 'datalogs/latest.csv' }}
-          fail-on-critical: 'true'
-```
-
-### Action Inputs
-
-| Input | Required | Default | Description |
-|-------|----------|---------|-------------|
-| `datalog-path` | Yes | - | Path to datalog CSV file |
-| `fail-on-critical` | No | `false` | Fail workflow on critical issues |
-| `fail-on-high` | No | `false` | Fail workflow on high priority issues |
-
-### Action Outputs
-
-| Output | Description |
-|--------|-------------|
-| `exit-code` | 0=ok, 1=high issues, 2=critical issues |
-| `report-path` | Path to generated JSON report |
-| `issues-found` | Number of issues detected |
-
-## Sample Datalog
-
-Minimal CSV structure for testing:
-
-```csv
-Time,AF Correction STFT (%),AF Learning Long Term (%),AF Ratio,Feedback Knock (°),Fine Knock Learn (°),Dynamic Advance Multiplier,Coolant Temp (°C),Mass Airflow Corrected (g/s)
-0.000,-1.2,-3.5,1.001,0.00,0.00,1.00,88,4.2
-0.033,-0.8,-3.5,0.998,0.00,0.00,1.00,88,4.5
-0.066,-1.5,-3.5,1.003,-1.41,0.00,1.00,89,5.1
-0.099,-0.5,-3.5,0.997,0.00,0.00,1.00,89,4.8
-```
-
-## Converting Documentation
-
-Generate HTML or JSON from markdown docs:
-
-```bash
-# Convert all documentation
-python scripts/convert.py
-
-# Convert specific category
-python scripts/convert.py docs/ignition
-
-# View in browser
-open output/html/index.html
+          datalog-path: 'datalogs/latest.csv'
 ```
 
 ## Platform
@@ -165,3 +214,7 @@ This documentation is provided for educational purposes only. Improper ECU tunin
 - Never exceed safe mechanical limits
 
 **Use at your own risk.**
+
+---
+
+*Built with the WRX community in mind. Contributions welcome.*

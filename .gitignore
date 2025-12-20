@@ -31,8 +31,7 @@ docs/tuning-history/analysis-log.json
 # Images
 *.png
 
-# Other
-AGENTS.md
+# Other (but keep AGENTS.md - it's essential)
 FA20-ANALYZER.md
 fa20_analyzer/
 requirements.txt
