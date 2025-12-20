@@ -34,6 +34,30 @@ from analyze_datalog import (
 )
 
 
+class LoadedFileLabel(Static):
+    """A clickable label for loaded files - click to remove."""
+    
+    def __init__(self, filepath: Path, on_remove: callable, **kwargs):
+        super().__init__(**kwargs)
+        self.filepath = filepath
+        self.on_remove = on_remove
+        self.update(f"✓ {filepath.name}")
+    
+    def on_enter(self) -> None:
+        """Mouse entered - show remove hint."""
+        self.update(f"✕ {self.filepath.name} (click to remove)")
+        self.styles.color = "#ff6b35"
+    
+    def on_leave(self) -> None:
+        """Mouse left - restore normal view."""
+        self.update(f"✓ {self.filepath.name}")
+        self.styles.color = "#00d26a"
+    
+    def on_click(self) -> None:
+        """Remove this file from the analysis."""
+        self.on_remove(self.filepath)
+
+
 class StatusIndicator(Static):
     """A colored status indicator widget."""
     
@@ -235,6 +259,58 @@ class ActionItemsPanel(Static):
                 row['Item'],
                 row['Status']
             )
+
+
+class SaveFileScreen(ModalScreen):
+    """Modal screen for choosing save location and filename."""
+    
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+    
+    def __init__(self, default_name: str = "export.txt", title: str = "Save As", start_path: str = None):
+        super().__init__()
+        self.default_name = default_name
+        self.title = title
+        self.start_path = Path(start_path).expanduser() if start_path else Path.home() / "Documents"
+        self.selected_dir = self.start_path
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="save-file-container"):
+            yield Static(self.title, id="save-title")
+            yield Static(f"📁 {self.start_path}", id="current-dir-label")
+            yield DirectoryTree(str(self.start_path), id="save-dir-tree")
+            with Horizontal(id="filename-row"):
+                yield Static("Filename:", id="filename-label")
+                yield Input(value=self.default_name, placeholder="filename", id="save-filename-input")
+            with Horizontal(id="save-buttons"):
+                yield Button("Save", id="save-btn", variant="primary")
+                yield Button("Cancel", id="cancel-btn", variant="default")
+    
+    def on_directory_tree_directory_selected(self, event: DirectoryTree.DirectorySelected):
+        """Update selected directory."""
+        self.selected_dir = event.path
+        self.query_one("#current-dir-label", Static).update(f"📁 {event.path}")
+    
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "save-btn":
+            filename = self.query_one("#save-filename-input", Input).value
+            if filename:
+                full_path = self.selected_dir / filename
+                self.dismiss(full_path)
+            else:
+                self.dismiss(None)
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
+    
+    def on_input_submitted(self, event: Input.Submitted):
+        """Handle enter key in input."""
+        if event.value:
+            full_path = self.selected_dir / event.value
+            self.dismiss(full_path)
+    
+    def action_cancel(self):
+        self.dismiss(None)
 
 
 class FilePickerScreen(ModalScreen):
@@ -559,6 +635,65 @@ class DAMGoodApp(App):
     TabPane > * {
         width: 100%;
     }
+    
+    /* Save file dialog */
+    #save-file-container {
+        width: 70%;
+        height: 70%;
+        background: $surface;
+        border: solid $accent;
+        padding: 1;
+    }
+    
+    #save-title {
+        text-align: center;
+        text-style: bold;
+        background: $accent;
+        color: #000;
+        padding: 0 1;
+        height: 1;
+        margin-bottom: 1;
+    }
+    
+    #current-dir-label {
+        color: $text-dim;
+        height: 1;
+        margin-bottom: 1;
+    }
+    
+    #save-dir-tree {
+        height: 1fr;
+        background: $surface-dark;
+        border: solid $border-color;
+        margin-bottom: 1;
+    }
+    
+    #filename-row {
+        height: 1;
+        margin-bottom: 1;
+        align: left middle;
+    }
+    
+    #filename-label {
+        width: 10;
+        color: $text-dim;
+    }
+    
+    #save-filename-input {
+        width: 1fr;
+        background: $surface-dark;
+        border: solid $border-color;
+    }
+    
+    #save-buttons {
+        height: 1;
+        align: center middle;
+    }
+    
+    #save-buttons Button {
+        min-width: 12;
+        margin: 0 1;
+    }
     """
     
     TITLE = "DAMGood"
@@ -566,9 +701,10 @@ class DAMGoodApp(App):
     
     BINDINGS = [
         Binding("q", "quit", "Quit"),
-        Binding("l", "load_datalog", "Load Datalog"),
-        Binding("g", "generate_tables", "Generate Tables"),
+        Binding("l", "load_datalog", "Load"),
+        Binding("g", "generate_tables", "Generate"),
         Binding("r", "refresh", "Refresh"),
+        Binding("x", "reset", "Reset"),
     ]
     
     def __init__(self):
@@ -589,7 +725,7 @@ class DAMGoodApp(App):
                 yield Static("")  # Spacer
                 yield Button("Load Datalog", id="load-datalog-btn", variant="success")
                 yield Button("Add Another", id="add-datalog-btn", variant="default")
-                yield Static("", id="loaded-files-label")
+                yield Vertical(id="loaded-files-container")
                 yield Static("", id="log-type-label")
                 yield Static("")  # Spacer
                 yield Static("⚡ Actions", classes="section-title")
@@ -645,6 +781,32 @@ class DAMGoodApp(App):
             parts.append(f"Type: {self.log_type}")
         info.update(" | ".join(parts) if parts else "No datalogs loaded")
     
+    def _validate_and_load(self, path: Path) -> pd.DataFrame:
+        """Validate file is a readable CSV and load it."""
+        if not path.suffix.lower() == '.csv':
+            raise ValueError(f"Invalid format: {path.suffix}. Only CSV files are supported.")
+        
+        if not path.exists():
+            raise ValueError(f"File not found: {path.name}")
+        
+        try:
+            df = load_datalog(str(path))
+        except pd.errors.EmptyDataError:
+            raise ValueError(f"Empty file: {path.name}")
+        except pd.errors.ParserError:
+            raise ValueError(f"Invalid CSV format: {path.name}")
+        
+        if df.empty:
+            raise ValueError(f"No data in file: {path.name}")
+        
+        # Check for required columns
+        required_cols = ['Engine - RPM']
+        missing = [col for col in required_cols if col not in df.columns]
+        if missing:
+            raise ValueError(f"Missing required columns. Is this an Atlas datalog?")
+        
+        return df
+    
     def action_load_datalog(self):
         """Load a datalog file."""
         start_path = self.datalogs[-1].parent if self.datalogs else Path.home()
@@ -653,11 +815,13 @@ class DAMGoodApp(App):
             if result:
                 path = Path(result)
                 try:
-                    df = load_datalog(str(path))
+                    df = self._validate_and_load(path)
                     self.datalogs = [path]  # Reset to single file
                     self._process_datalog(df, path)
+                except ValueError as e:
+                    self.update_status(f"⚠️ {e}")
                 except Exception as e:
-                    self.update_status(f"Error: {e}")
+                    self.update_status(f"Error loading file: {e}")
         
         self.push_screen(FilePickerScreen(str(start_path)), handle_result)
     
@@ -669,7 +833,7 @@ class DAMGoodApp(App):
             if result:
                 path = Path(result)
                 try:
-                    df = load_datalog(str(path))
+                    df = self._validate_and_load(path)
                     self.datalogs.append(path)
                     # Merge with existing data
                     if self.df_all is not None:
@@ -677,8 +841,10 @@ class DAMGoodApp(App):
                         self._process_datalog(combined, path, append=True)
                     else:
                         self._process_datalog(df, path)
+                except ValueError as e:
+                    self.update_status(f"⚠️ {e}")
                 except Exception as e:
-                    self.update_status(f"Error: {e}")
+                    self.update_status(f"Error loading file: {e}")
         
         self.push_screen(FilePickerScreen(str(start_path)), handle_result)
     
@@ -719,17 +885,52 @@ class DAMGoodApp(App):
         # Auto-detect log type
         self.log_type, self.df_all, self.df_wot = self._detect_log_type(df)
         
-        # Update file labels
-        if append:
-            files_text = "\n".join([f"✓ {p.name}" for p in self.datalogs])
-        else:
-            files_text = f"✓ {path.name}"
-        self.query_one("#loaded-files-label", Static).update(files_text)
+        # Update file labels with clickable items
+        self._update_file_list()
         self.query_one("#log-type-label", Static).update(f"Type: {self.log_type}")
         
         # Run analysis
         self._analyze()
         self.update_status(f"Loaded: {len(self.df_all)} samples | {self.log_type}")
+    
+    def _update_file_list(self):
+        """Update the clickable file list in the sidebar."""
+        container = self.query_one("#loaded-files-container", Vertical)
+        container.remove_children()
+        
+        for filepath in self.datalogs:
+            label = LoadedFileLabel(filepath, self._remove_datalog)
+            container.mount(label)
+    
+    def _remove_datalog(self, filepath: Path):
+        """Remove a datalog file from the analysis."""
+        if filepath in self.datalogs:
+            self.datalogs.remove(filepath)
+            
+            if self.datalogs:
+                # Reload remaining files
+                combined_df = None
+                for path in self.datalogs:
+                    df = load_datalog(str(path))
+                    if combined_df is None:
+                        combined_df = df
+                    else:
+                        combined_df = pd.concat([combined_df, df], ignore_index=True)
+                
+                self.log_type, self.df_all, self.df_wot = self._detect_log_type(combined_df)
+                self._update_file_list()
+                self.query_one("#log-type-label", Static).update(f"Type: {self.log_type}")
+                self._analyze()
+                self.update_status(f"Removed {filepath.name} | {len(self.df_all)} samples remaining")
+            else:
+                # No files left
+                self.df_all = None
+                self.df_wot = None
+                self.log_type = "Unknown"
+                self._update_file_list()
+                self.query_one("#log-type-label", Static).update("")
+                self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
+                self.update_status("All datalogs removed")
     
     def _analyze(self):
         """Run analysis on loaded data and update all panels."""
@@ -762,15 +963,28 @@ class DAMGoodApp(App):
             self.update_status("Load a datalog first!")
             return
         
-        # Import the table generation function
-        from analyze_datalog import generate_revised_tables
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+        default_folder = f"tables_{timestamp}"
         
-        save_dir = Path.home() / "Documents" / "Atlas Tables"
-        try:
-            generate_revised_tables(self.df_all, self.df_wot, str(save_dir))
-            self.update_status(f"Tables saved to {save_dir}")
-        except Exception as e:
-            self.update_status(f"Error generating tables: {e}")
+        def handle_save(result):
+            if result:
+                save_dir = Path(result).parent / Path(result).stem  # Use as folder name
+                try:
+                    from analyze_datalog import generate_revised_tables
+                    generate_revised_tables(self.df_all, self.df_wot, str(save_dir))
+                    self.update_status(f"✓ Tables saved to {save_dir}")
+                except Exception as e:
+                    self.update_status(f"Error: {e}")
+        
+        self.push_screen(
+            SaveFileScreen(
+                default_name=default_folder,
+                title="Save Tables To",
+                start_path=str(Path.home() / "Documents")
+            ),
+            handle_save
+        )
     
     def action_export_report(self):
         """Export full text report."""
@@ -778,20 +992,52 @@ class DAMGoodApp(App):
             self.update_status("Load a datalog first!")
             return
         
-        from analyze_datalog import generate_report
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+        default_name = f"FA20_Report_{timestamp}.txt"
         
-        output_path = Path.home() / "Documents" / "FA20_Tuning_Report.txt"
-        try:
-            generate_report(self.df_all, self.df_wot, output_path, self.config)
-            self.update_status(f"Report saved to {output_path}")
-        except Exception as e:
-            self.update_status(f"Error: {e}")
+        def handle_save(result):
+            if result:
+                output_path = Path(result)
+                try:
+                    from analyze_datalog import generate_report
+                    generate_report(self.df_all, self.df_wot, output_path, self.config)
+                    self.update_status(f"✓ Report saved to {output_path}")
+                except Exception as e:
+                    self.update_status(f"Error: {e}")
+        
+        self.push_screen(
+            SaveFileScreen(
+                default_name=default_name,
+                title="Export Report",
+                start_path=str(Path.home() / "Documents")
+            ),
+            handle_save
+        )
     
     def action_refresh(self):
         """Refresh the analysis."""
         if self.df_all is not None:
             self._analyze()
             self.update_status("Refreshed analysis")
+    
+    def action_reset(self):
+        """Reset everything back to default state."""
+        self.datalogs = []
+        self.df_all = None
+        self.df_wot = None
+        self.log_type = "Unknown"
+        
+        # Clear file list
+        container = self.query_one("#loaded-files-container", Vertical)
+        container.remove_children()
+        
+        # Reset labels
+        self.query_one("#log-type-label", Static).update("")
+        self.query_one("#file-info", Static).update("No datalogs loaded")
+        self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
+        
+        self.update_status("Reset complete - Ready")
 
 
 def main():
