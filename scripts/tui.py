@@ -84,12 +84,12 @@ class SummaryPanel(Static):
         self.data = generate_executive_summary(df, config)
         content = self.query_one("#summary-content", Static)
         
-        # Build rich display
-        table = Table(title="Executive Summary", expand=True)
-        table.add_column("Parameter", style="cyan")
-        table.add_column("Value", justify="right")
-        table.add_column("Threshold", justify="center")
-        table.add_column("Status", justify="center")
+        # Build rich display with controlled column widths
+        table = Table(title="Executive Summary", expand=False, box=None, padding=(0, 1))
+        table.add_column("Parameter", style="cyan", width=18)
+        table.add_column("Value", justify="right", width=10)
+        table.add_column("Thresh", justify="center", width=8)
+        table.add_column("Status", justify="left", width=14)
         
         for _, row in self.data.iterrows():
             status = row['Status']
@@ -548,17 +548,20 @@ class DAMGoodApp(App):
             # Sidebar
             with Vertical(id="sidebar"):
                 yield Static("📁 Datalogs", classes="section-title")
+                yield Static("")  # Spacer
                 yield Button("Load Datalog", id="load-datalog-btn", variant="success")
                 yield Button("Add Another", id="add-datalog-btn", variant="default")
                 yield Static("", id="loaded-files-label")
                 yield Static("", id="log-type-label")
-                yield Static("─" * 28)
+                yield Static("")  # Spacer
                 yield Static("⚡ Actions", classes="section-title")
+                yield Static("")  # Spacer
                 yield Button("Generate Tables", id="generate-btn", variant="primary")
                 yield Button("Export Report", id="export-btn")
-                yield Static("─" * 28)
+                yield Static("")  # Spacer
                 yield Static("📊 Status", classes="section-title")
-                yield Static("No data loaded", id="status-label")
+                yield Static("")  # Spacer
+                yield Static("Ready", id="status-label")
             
             # Main content with tabs
             with Vertical(id="content"):
@@ -596,12 +599,12 @@ class DAMGoodApp(App):
         """Update the file info bar."""
         info = self.query_one("#file-info", Static)
         parts = []
-        if self.wot_path:
-            parts.append(f"WOT: {self.wot_path.name}")
-        if self.cruise_path:
-            parts.append(f"Cruise: {self.cruise_path.name}")
+        if self.datalogs:
+            parts.append(f"Files: {len(self.datalogs)}")
         if self.df_all is not None:
             parts.append(f"Samples: {len(self.df_all)}")
+        if hasattr(self, 'log_type') and self.log_type:
+            parts.append(f"Type: {self.log_type}")
         info.update(" | ".join(parts) if parts else "No datalogs loaded")
     
     def action_load_datalog(self):
