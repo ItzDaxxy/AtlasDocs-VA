@@ -219,6 +219,21 @@ atlas-docs/
 
 ## Tuning Workflow
 
+### 0. Import the DAMGood Gauge Set
+Before logging, import the included gauge set into Atlas for consistent, analysis-ready datalogs:
+
+1. In Atlas, go to **File → Import → Gauge Set**
+2. Select `gauges/DAMGood.gaugeset` from this repo
+3. The gauge set will appear in your gauge list
+
+**Why use this gauge set?**
+- **Pre-configured parameters** — All the PIDs needed for fuel, ignition, boost, and knock analysis
+- **Consistent column names** — Matches what the analyzer script expects
+- **No missing data** — Ensures you capture DAM, FBK, FKL, STFT, LTFT, MAF, boost, lambda, etc.
+- **Optimized layout** — Organized for at-a-glance monitoring while driving
+
+Using a different gauge set? The analyzer will still work, but column names may need adjustment.
+
 ### 1. Collect Datalogs
 Export from Atlas. Your logging needs will vary based on what you're tuning, but a comprehensive analysis can include:
 
