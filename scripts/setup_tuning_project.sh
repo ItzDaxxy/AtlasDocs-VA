@@ -85,8 +85,8 @@ echo "                              BOOST TARGETS"
 echo "────────────────────────────────────────────────────────────────────────────────"
 echo ""
 
-read -p "Target peak boost (psi) [20]: " TARGET_BOOST
-TARGET_BOOST=${TARGET_BOOST:-20}
+read -p "Target peak boost (psi) [18]: " TARGET_BOOST
+TARGET_BOOST=${TARGET_BOOST:-18}
 
 read -p "Redline RPM [6500]: " REDLINE
 REDLINE=${REDLINE:-6500}

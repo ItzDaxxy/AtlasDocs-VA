@@ -6,17 +6,86 @@ Generates detailed tuning reports with pandas-formatted tables.
 Usage:
     python analyze_datalog.py --wot wot.csv --cruise cruise.csv
     python analyze_datalog.py datalog.csv
+    python analyze_datalog.py --config vehicle_config.yaml --wot wot.csv --cruise cruise.csv
 """
 
 import pandas as pd
 import numpy as np
 import argparse
 import sys
+import yaml
 from pathlib import Path
 from datetime import datetime
 
 pd.set_option('display.width', 120)
 pd.set_option('display.max_columns', 20)
+
+# Default thresholds (overridden by vehicle_config.yaml if provided)
+DEFAULT_CONFIG = {
+    'vehicle': {
+        'year': 'Unknown',
+        'model': 'WRX',
+        'engine': 'FA20DIT'
+    },
+    'targets': {
+        'peak_boost_psi': 18,
+        'redline_rpm': 6500
+    },
+    'safety_margins': {
+        'timing_margin_degrees': 2,
+        'wot_afr_target': 10.8,
+        'boost_margin_psi': 1,
+        'dam_minimum': 1.00,
+        'max_knock_retard': 0
+    },
+    'thresholds': {
+        'stft_warning': 5,
+        'stft_critical': 10,
+        'ltft_warning': 5,
+        'ltft_critical': 10,
+        'dam_warning': 0.95,
+        'dam_critical': 0.75,
+        'fbk_warning': -1,
+        'fbk_critical': -3,
+        'fkl_warning': -1,
+        'fkl_critical': -2
+    }
+}
+
+
+def load_config(config_path=None):
+    """Load vehicle configuration from YAML file or use defaults."""
+    config = DEFAULT_CONFIG.copy()
+    
+    if config_path and Path(config_path).exists():
+        with open(config_path, 'r') as f:
+            user_config = yaml.safe_load(f)
+            # Deep merge user config into defaults
+            for key in user_config:
+                if key in config and isinstance(config[key], dict):
+                    config[key].update(user_config[key])
+                else:
+                    config[key] = user_config[key]
+        print(f"Loaded config from: {config_path}")
+    else:
+        # Try to find vehicle_config.yaml in common locations
+        search_paths = [
+            Path.cwd() / 'vehicle_config.yaml',
+            Path.cwd().parent / 'vehicle_config.yaml',
+        ]
+        for path in search_paths:
+            if path.exists():
+                with open(path, 'r') as f:
+                    user_config = yaml.safe_load(f)
+                    for key in user_config:
+                        if key in config and isinstance(config[key], dict):
+                            config[key].update(user_config[key])
+                        else:
+                            config[key] = user_config[key]
+                print(f"Auto-detected config: {path}")
+                break
+    
+    return config
 
 
 def load_datalog(filepath):
@@ -49,17 +118,23 @@ def load_datalog(filepath):
     return df
 
 
-def generate_executive_summary(df):
-    """Generate executive summary table."""
+def generate_executive_summary(df, config):
+    """Generate executive summary table using config thresholds."""
+    thresholds = config['thresholds']
+    
     dam_min = df['Ignition - Dynamic Advance Multiplier'].min()
     fbk_min = df['Ignition - Feedback Knock'].min()
     fkl_min = df['Ignition - Fine Knock Learn'].min()
     ltft_mean = df['Fuel - Command - Corrections - AF Learn 1 (LTFT)'].mean()
     
-    dam_status = '✅ Perfect' if dam_min >= 0.95 else ('⚠️ Warning' if dam_min >= 0.75 else '❌ Critical')
-    fbk_status = '✅ No knock' if fbk_min >= -1 else ('⚠️ Minor' if fbk_min >= -3 else '❌ Knock')
-    fkl_status = '✅ Clean' if abs(fkl_min) < 1 else ('⚠️ Learning' if abs(fkl_min) < 2 else '❌ Retard')
-    ltft_status = '✅ OK' if abs(ltft_mean) < 5 else ('⚠️ High' if abs(ltft_mean) < 10 else '❌ Critical')
+    dam_status = '✅ Perfect' if dam_min >= thresholds['dam_warning'] else \
+                 ('⚠️ Warning' if dam_min >= thresholds['dam_critical'] else '❌ Critical')
+    fbk_status = '✅ No knock' if fbk_min >= thresholds['fbk_warning'] else \
+                 ('⚠️ Minor' if fbk_min >= thresholds['fbk_critical'] else '❌ Knock')
+    fkl_status = '✅ Clean' if fkl_min >= thresholds['fkl_warning'] else \
+                 ('⚠️ Learning' if fkl_min >= thresholds['fkl_critical'] else '❌ Retard')
+    ltft_status = '✅ OK' if abs(ltft_mean) < thresholds['ltft_warning'] else \
+                  ('⚠️ High' if abs(ltft_mean) < thresholds['ltft_critical'] else '❌ Critical')
     
     summary = pd.DataFrame({
         'Parameter': ['DAM', 'Feedback Knock', 'Fine Knock Learn', 'LTFT'],
@@ -242,8 +317,12 @@ def generate_action_items(df, df_wot):
     return pd.DataFrame(items)
 
 
-def generate_report(df_all, df_wot, output_path):
+def generate_report(df_all, df_wot, output_path, config):
     """Generate the full analysis report."""
+    
+    vehicle = config.get('vehicle', {})
+    mods = config.get('mods', {})
+    safety = config.get('safety_margins', {})
     
     report = f'''
 ================================================================================
@@ -252,16 +331,30 @@ def generate_report(df_all, df_wot, output_path):
                            {datetime.now().strftime('%Y-%m-%d %H:%M')}
 ================================================================================
 
-Vehicle:   Subaru WRX (FA20 DIT)
+Vehicle:   {vehicle.get('year', '')} Subaru {vehicle.get('model', 'WRX')} ({vehicle.get('engine', 'FA20DIT')})
 Software:  Atlas
 Samples:   {len(df_all)} total
-
+'''
+    
+    # Add mod list if available
+    if mods:
+        report += f'''
+Mods:      Turbo: {mods.get('turbo', 'stock')} | IC: {mods.get('intercooler', 'stock')} | DP: {mods.get('downpipe', 'stock')}
+'''
+    
+    # Add safety margins from config
+    if safety:
+        report += f'''
+Safety:    Timing margin: {safety.get('timing_margin_degrees', 2)}° | AFR target: {safety.get('wot_afr_target', 10.8)}:1 | Boost margin: +{safety.get('boost_margin_psi', 1)} psi
+'''
+    
+    report += '''
 ================================================================================
                               EXECUTIVE SUMMARY
 ================================================================================
 '''
     
-    summary = generate_executive_summary(df_all)
+    summary = generate_executive_summary(df_all, config)
     report += summary.to_string(index=False) + '\n'
     
     report += '''
@@ -361,13 +454,27 @@ KNOCK THRESHOLD REFERENCE:
 
 
 def main():
-    parser = argparse.ArgumentParser(description='FA20 DIT Datalog Analysis')
+    parser = argparse.ArgumentParser(
+        description='FA20 DIT Datalog Analysis - Built for VA WRX (2015-2021)',
+        epilog='Defaults based on stock FA20DIT calibration. Use --config for custom thresholds.'
+    )
     parser.add_argument('datalog', nargs='?', help='Single datalog CSV file')
     parser.add_argument('--wot', help='WOT datalog CSV file')
     parser.add_argument('--cruise', help='Cruise datalog CSV file')
+    parser.add_argument('--config', '-c', help='Path to vehicle_config.yaml')
     parser.add_argument('-o', '--output', help='Output report path')
     
     args = parser.parse_args()
+    
+    # Load configuration (will auto-detect vehicle_config.yaml if present)
+    config = load_config(args.config)
+    
+    vehicle = config.get('vehicle', {})
+    print(f"\n{'='*60}")
+    print(f"  FA20 DIT Datalog Analyzer - VA WRX (2015-2021)")
+    print(f"  Vehicle: {vehicle.get('year', '')} {vehicle.get('model', 'WRX')}")
+    print(f"  Baseline: Stock FA20DIT calibration (18 psi)")
+    print(f"{'='*60}\n")
     
     # Determine input files
     if args.wot and args.cruise:
@@ -394,8 +501,8 @@ def main():
     else:
         output_path = base_path / 'FA20_Tuning_Report.txt'
     
-    # Generate report
-    generate_report(df_all, df_wot, output_path)
+    # Generate report with config
+    generate_report(df_all, df_wot, output_path, config)
 
 
 if __name__ == "__main__":

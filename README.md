@@ -1,8 +1,18 @@
 # FA20DIT Atlas ECU Documentation & Datalog Analyzer
 
-Documentation and analysis tools for Subaru FA20DIT engines (2015-2021 WRX) tuned with Atlas ECU software.
+AI-powered tuning analysis tools for **2015-2021 Subaru WRX (VA chassis)** with the FA20DIT engine, tuned with Atlas ECU software.
 
 > ⚠️ **Unofficial Resource**: This project is not affiliated with, endorsed by, or supported by Atlas ECU or any official tuning organization. All documentation is community-sourced and provided as-is for educational purposes.
+
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **VA WRX (2015-2021)** | ✅ Fully Supported | FA20DIT - Primary development platform |
+| VA STI (2015-2021) | ⚠️ Partial | EJ257 - Different engine, some concepts apply |
+| VB WRX (2022+) | ❌ Not Supported | FA24 - Different ECU architecture |
+
+**This tool is built on and validated against the VA WRX FA20DIT platform.** Default thresholds and safety margins are calibrated for the stock FA20 turbo configuration.
 
 ## Overview
 
@@ -260,9 +270,20 @@ jobs:
           datalog-path: 'datalogs/latest.csv'
 ```
 
-## Platform
+## Stock Calibration Baseline
 
-**Supported:** VA WRX (2015-2021) with FA20DIT engine
+Default configuration is based on **stock FA20DIT calibration**:
+
+| Parameter | Stock Default | Notes |
+|-----------|---------------|-------|
+| Peak Boost | 18 psi | Stock turbo safe limit |
+| WOT AFR | 10.8:1 | Rich for cylinder protection |
+| DAM Minimum | 1.00 | Non-negotiable |
+| Timing Margin | 2° | Conservative starting point |
+| STFT Warning | ±5% | Typical stock tolerance |
+| LTFT Warning | ±5% | Indicates MAF scaling issues |
+
+These defaults are intentionally conservative. The setup wizard will adjust margins based on your specific mod list.
 
 ## Disclaimer
 
