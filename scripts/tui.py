@@ -942,7 +942,7 @@ class DAMGoodApp(App):
                 yield Static("📁 Datalogs", classes="section-title")
                 yield Static("")  # Spacer
                 yield Button("Load Datalog", id="load-datalog-btn", variant="success")
-                yield Button("Add Another", id="add-datalog-btn", variant="default")
+                yield Button("Add Another", id="add-datalog-btn", variant="default", disabled=True)
                 yield Vertical(id="loaded-files-container")
                 yield Static("", id="log-type-label")
                 yield Static("")  # Spacer
@@ -1103,6 +1103,9 @@ class DAMGoodApp(App):
         # Auto-detect log type
         self.log_type, self.df_all, self.df_wot = self._detect_log_type(df)
         
+        # Enable "Add Another" button now that we have data
+        self.query_one("#add-datalog-btn", Button).disabled = False
+        
         # Update file labels with clickable items
         self._update_file_list()
         self.query_one("#log-type-label", Static).update(f"Type: {self.log_type}")
@@ -1249,6 +1252,9 @@ class DAMGoodApp(App):
         # Clear file list
         container = self.query_one("#loaded-files-container", Vertical)
         container.remove_children()
+        
+        # Disable "Add Another" button
+        self.query_one("#add-datalog-btn", Button).disabled = True
         
         # Reset labels
         self.query_one("#log-type-label", Static).update("")
