@@ -31,6 +31,38 @@ This repository contains:
 - **Tuning Workflow** - Complete dial-in process with table corrections and math
 - **AI Tuning Agent** - AGENTS.md instructions for AI-assisted datalog analysis
 
+## Two Ways to Use This Tool
+
+### Option 1: Static Scripts
+Run the analyzer directly from the command line for quick, automated reports:
+
+```bash
+python scripts/analyze_datalog.py --wot wot.csv --cruise cruise.csv
+```
+
+No AI required — just Python and pandas. Great for batch processing or CI/CD pipelines.
+
+### Option 2: 🤖 Interactive AI Assistant
+
+This repo includes an `AGENTS.md` file that turns AI assistants into FA20 tuning experts. Clone this repo and open it in [Amp](https://ampcode.com) or add it to a Claude project, and you get an interactive tuning partner that can:
+
+- **Analyze your datalogs conversationally** — just drop a CSV and ask questions
+- **Explain what the data means** — "Why is my STFT negative at high MAF?"
+- **Generate full tuning reports** — formatted tables, histograms, and action items
+- **Calculate table corrections** — MAF scaling, PE targets, boost adjustments
+- **Debug tuning issues** — "I'm getting knock at 4500 RPM, what should I check?"
+
+#### Example Interaction
+
+```
+You: Here's my WOT datalog, what do you see?
+AI:  [analyzes CSV] Your DAM is solid at 1.00, no knock events. 
+     However, STFT is running +8% lean at 4500-5000 RPM during WOT.
+     Your PE table needs enrichment in that range. Here's the correction...
+```
+
+Unlike static scripts, the AI can answer follow-up questions, explain its reasoning, and adapt recommendations to your specific build and situation.
+
 ## Quick Start
 
 ```bash
