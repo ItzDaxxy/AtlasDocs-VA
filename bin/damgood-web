@@ -1,0 +1,16 @@
+#!/bin/bash
+#
+# DAMGood Web Server - Serve the TUI in a browser
+#
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Check for textual-serve
+if ! python3 -c "import textual_serve" 2>/dev/null; then
+    echo "Installing textual-serve..."
+    pip3 install textual-serve
+fi
+
+# Run the web server
+python3 "$PROJECT_ROOT/scripts/serve_web.py" "$@"
