@@ -285,8 +285,29 @@ class DAMGoodApp(App):
     """DAMGood - FA20 Datalog Analyzer TUI."""
     
     CSS = """
+    /* DAMGood Theme - Racing Inspired */
+    $accent: #ff6b35;
+    $accent-dim: #cc5529;
+    $success: #00d26a;
+    $warning: #ffd23f;
+    $danger: #ff3366;
+    $surface-dark: #0d1117;
+    $surface: #161b22;
+    $surface-light: #21262d;
+    $border-color: #30363d;
+    $text-dim: #8b949e;
+    
     Screen {
-        background: $surface;
+        background: $surface-dark;
+    }
+    
+    Header {
+        background: $accent;
+        color: #000;
+    }
+    
+    Footer {
+        background: $surface-light;
     }
     
     #main-container {
@@ -295,100 +316,210 @@ class DAMGoodApp(App):
     }
     
     #sidebar {
-        width: 30;
-        background: $panel;
-        border-right: solid $primary;
-        padding: 1;
+        width: 26;
+        background: $surface;
+        border-right: solid $border-color;
+        padding: 0 1;
     }
     
     #content {
         width: 100%;
-        padding: 1;
+        padding: 0 1;
     }
     
     .section-title {
-        background: $primary;
-        color: $text;
+        background: $surface-light;
+        color: $accent;
         padding: 0 1;
         margin: 1 0 0 0;
         text-style: bold;
+        height: 1;
     }
     
     #summary-panel {
         height: auto;
-        max-height: 12;
-        border: solid $primary;
+        max-height: 10;
+        border: solid $border-color;
         margin: 0 0 1 0;
     }
     
     DataTable {
         height: auto;
-        max-height: 15;
-        margin: 0 0 1 0;
+        max-height: 12;
+        margin: 0;
+        background: $surface;
+    }
+    
+    DataTable > .datatable--header {
+        background: $surface-light;
+        color: $accent;
+        text-style: bold;
+    }
+    
+    DataTable > .datatable--cursor {
+        background: $accent-dim;
+        color: #fff;
     }
     
     #file-info {
-        height: 3;
-        background: $boost;
-        padding: 0 1;
-    }
-    
-    #status-bar {
         height: 1;
-        background: $primary-darken-2;
-        color: $text;
+        background: $surface-light;
+        color: $text-dim;
         padding: 0 1;
     }
     
+    /* Compact Buttons */
     Button {
-        margin: 0 1;
+        min-width: 20;
+        height: 1;
+        margin: 0;
+        padding: 0 1;
+        border: none;
+        background: $surface-light;
+        color: $text-dim;
     }
     
-    #load-wot-btn {
-        background: $success;
+    Button:hover {
+        background: $accent-dim;
+        color: #fff;
     }
     
-    #load-cruise-btn {
-        background: $warning;
+    Button:focus {
+        text-style: bold;
+    }
+    
+    #load-datalog-btn {
+        background: $accent;
+        color: #000;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    
+    #load-datalog-btn:hover {
+        background: $accent-dim;
+        color: #fff;
+    }
+    
+    #add-datalog-btn {
+        background: $surface-light;
+        margin-bottom: 1;
     }
     
     #generate-btn {
-        background: $primary;
+        background: $success;
+        color: #000;
+        margin-bottom: 1;
+    }
+    
+    #generate-btn:hover {
+        background: #00b359;
+    }
+    
+    #export-btn {
+        margin-bottom: 1;
+    }
+    
+    #loaded-files-label {
+        color: $success;
+        height: auto;
+    }
+    
+    #log-type-label {
+        color: $warning;
+        height: 1;
+        margin-bottom: 1;
+    }
+    
+    #status-label {
+        color: $text-dim;
+        height: auto;
     }
     
     /* File picker modal */
     #file-picker-container {
-        width: 80%;
-        height: 80%;
+        width: 70%;
+        height: 70%;
         background: $surface;
-        border: thick $primary;
+        border: solid $accent;
         padding: 1;
     }
     
     #picker-title {
         text-align: center;
         text-style: bold;
-        background: $primary;
-        padding: 1;
+        background: $accent;
+        color: #000;
+        padding: 0 1;
+        height: 1;
+        margin-bottom: 1;
+    }
+    
+    #selected-file-label {
+        color: $success;
+        height: 1;
         margin-bottom: 1;
     }
     
     #file-tree {
         height: 100%;
-        margin-bottom: 1;
+        background: $surface-dark;
+        border: solid $border-color;
     }
     
     #picker-buttons {
-        height: 3;
+        height: 1;
         align: center middle;
+        margin-top: 1;
     }
     
+    #picker-buttons Button {
+        min-width: 12;
+        margin: 0 1;
+    }
+    
+    #select-btn {
+        background: $accent;
+        color: #000;
+    }
+    
+    /* Tabs */
     TabbedContent {
         height: 100%;
     }
     
+    TabbedContent ContentSwitcher {
+        background: $surface-dark;
+    }
+    
     TabPane {
-        padding: 1;
+        padding: 0;
+    }
+    
+    Tabs {
+        background: $surface;
+        border-bottom: solid $border-color;
+    }
+    
+    Tab {
+        background: $surface;
+        color: $text-dim;
+        padding: 0 2;
+    }
+    
+    Tab:hover {
+        background: $surface-light;
+        color: #fff;
+    }
+    
+    Tab.-active {
+        background: $accent;
+        color: #000;
+        text-style: bold;
+    }
+    
+    /* Scrollable containers */
+    ScrollableContainer {
+        background: $surface-dark;
     }
     """
     
@@ -454,7 +585,7 @@ class DAMGoodApp(App):
     
     def on_mount(self):
         """Called when app is mounted."""
-        self.update_status("Ready - Press 'W' to load WOT datalog")
+        self.update_status("Ready - Press 'L' to load datalog")
     
     def update_status(self, message: str):
         """Update the status label."""
