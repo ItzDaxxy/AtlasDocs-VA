@@ -1,0 +1,17 @@
+#!/bin/bash
+#
+# DAMGood - FA20 Datalog Analyzer
+# Launch the TUI interface
+#
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+
+# Check for dependencies
+if ! python3 -c "import textual" 2>/dev/null; then
+    echo "Installing dependencies..."
+    pip3 install textual rich pandas numpy pyyaml
+fi
+
+# Run the TUI
+python3 "$PROJECT_ROOT/scripts/tui.py" "$@"

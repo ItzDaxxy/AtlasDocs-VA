@@ -31,9 +31,26 @@ This repository contains:
 - **Tuning Workflow** - Complete dial-in process with table corrections and math
 - **AI Tuning Agent** - AGENTS.md instructions for AI-assisted datalog analysis
 
-## Two Ways to Use This Tool
+## Three Ways to Use This Tool
 
-### Option 1: Static Scripts
+### Option 1: 🖥️ Terminal UI (TUI)
+Launch the interactive terminal interface for a visual analysis experience:
+
+```bash
+./bin/damgood
+# Or directly:
+python scripts/tui.py
+```
+
+Features:
+- **Tabbed interface** — Summary, Fuel Trims, Boost, Power Enrichment panels
+- **File picker** — Browse and load WOT/cruise datalogs
+- **Live DataTables** — Sortable, scrollable analysis tables
+- **One-click exports** — Generate reports and revised tables
+
+![TUI Screenshot](docs/tui-screenshot.png)
+
+### Option 2: Static Scripts
 Run the analyzer directly from the command line for quick, automated reports:
 
 ```bash
@@ -42,7 +59,7 @@ python scripts/analyze_datalog.py --wot wot.csv --cruise cruise.csv
 
 No AI required — just Python and pandas. Great for batch processing or CI/CD pipelines.
 
-### Option 2: 🤖 Interactive AI Assistant
+### Option 3: 🤖 Interactive AI Assistant
 
 This repo includes an `AGENTS.md` file that turns AI assistants into FA20 tuning experts. Clone this repo and open it in [Amp](https://ampcode.com) or add it to a Claude project, and you get an interactive tuning partner that can:
 
