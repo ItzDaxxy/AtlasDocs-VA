@@ -1,5 +1,5 @@
 name: 'FA20 Datalog Analyzer'
-description: 'Analyze Subaru FA20DIT datalogs from Atlas ECU tuning software'
+description: 'Analyze Subaru FA20DIT datalogs from Atlas tuning software'
 author: 'AtlasDocs'
 
 branding:

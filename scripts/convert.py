@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Atlas ECU Documentation Converter
+Atlas Documentation Converter
 Converts Markdown table documentation to JSON and HTML formats.
 
 Usage:
@@ -297,7 +297,7 @@ def generate_index(tables_dir: Path, output_dir: Path):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Atlas ECU Table Documentation - VA WRX</title>
+    <title>Atlas Table Documentation - VA WRX</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -316,7 +316,7 @@ def generate_index(tables_dir: Path, output_dir: Path):
     </style>
 </head>
 <body>
-    <h1>Atlas ECU Table Documentation</h1>
+    <h1>Atlas Table Documentation</h1>
     <p><strong>Platform:</strong> VA WRX (2015-2021) / FA20DIT</p>
     <p><strong>Generated:</strong> """ + datetime.now().strftime('%Y-%m-%d %H:%M') + """</p>
 """

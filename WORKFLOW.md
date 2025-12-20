@@ -2,7 +2,7 @@
 
 ## Overview
 
-This workflow enables automated analysis of FA20DIT datalogs from Atlas ECU software, either locally via CLI or through GitHub Actions.
+This workflow enables automated analysis of FA20DIT datalogs from Atlas software, either locally via CLI or through GitHub Actions.
 
 ## Local Analysis
 

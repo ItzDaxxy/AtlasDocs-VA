@@ -1,8 +1,16 @@
-# FA20DIT Atlas ECU Documentation & Datalog Analyzer
+# 🏎️ DAMGood
 
-AI-powered tuning analysis tools for **2015-2021 Subaru WRX (VA chassis)** with the FA20DIT engine, tuned with Atlas ECU software.
+**Because DAM=1.00 is the only acceptable answer.**
 
-> ⚠️ **Unofficial Resource**: This project is not affiliated with, endorsed by, or supported by Atlas ECU or any official tuning organization. All documentation is community-sourced and provided as-is for educational purposes.
+AI-powered datalog analysis and tuning tools for the **2015-2021 Subaru WRX (VA chassis)** with FA20DIT engine, built for the [Atlas Open Source Tuning Suite](https://github.com/atlas-tuning).
+
+### Features
+- 🔧 Interactive mod-list setup with safety margin calculations
+- 📊 Comprehensive pandas-formatted tuning reports
+- ⛽ Fuel trim analysis, knock detection, boost control review
+- 📋 Revised table generation for Atlas import
+
+> ⚠️ **Unofficial Resource**: This project is not affiliated with, endorsed by, or supported by Atlas or Subaru. All documentation is community-sourced and provided as-is for educational purposes.
 
 ## Platform Support
 
@@ -18,7 +26,7 @@ AI-powered tuning analysis tools for **2015-2021 Subaru WRX (VA chassis)** with 
 
 This repository contains:
 
-- **ECU Table Documentation** - Reference docs for Atlas ECU tables organized by domain (fuel, ignition, AVCS, etc.)
+- **ECU Table Documentation** - Reference docs for Atlas tables organized by domain (fuel, ignition, AVCS, etc.)
 - **Datalog Analyzer** - Comprehensive analysis tool generating pandas-formatted tuning reports
 - **Tuning Workflow** - Complete dial-in process with table corrections and math
 - **AI Tuning Agent** - AGENTS.md instructions for AI-assisted datalog analysis
@@ -265,7 +273,7 @@ jobs:
       - uses: actions/checkout@v4
       
       - name: Run FA20 Analysis
-        uses: ItzDaxxy/AtlasDocs-VA@main
+        uses: ItzDaxxy/DAMGood@main
         with:
           datalog-path: 'datalogs/latest.csv'
 ```

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Atlas CSV Table Parser
-Parses CSV exports from Atlas ECU software and generates markdown documentation.
+Parses CSV exports from Atlas software and generates markdown documentation.
 
 Atlas CSV Format:
 - Row 1: X-axis values (empty first cell)
