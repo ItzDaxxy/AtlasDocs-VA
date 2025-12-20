@@ -14,8 +14,12 @@ import numpy as np
 import argparse
 import sys
 import yaml
+import json
 from pathlib import Path
 from datetime import datetime
+
+# Config file for remembering last save location
+SETTINGS_FILE = Path.home() / '.damgood_settings.json'
 
 pd.set_option('display.width', 120)
 pd.set_option('display.max_columns', 20)
@@ -274,6 +278,206 @@ def generate_knock_reference():
     })
 
 
+def load_settings():
+    """Load saved settings (like last save location)."""
+    if SETTINGS_FILE.exists():
+        try:
+            with open(SETTINGS_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            pass
+    return {}
+
+
+def save_settings(settings):
+    """Save settings to file."""
+    with open(SETTINGS_FILE, 'w') as f:
+        json.dump(settings, f, indent=2)
+
+
+def generate_revised_tables(df_all, df_wot, save_dir):
+    """Generate revised tuning tables based on analysis."""
+    tables = {}
+    
+    # MAF Scaling corrections
+    maf_corrections = []
+    maf_bins = [(0,10), (10,20), (20,30), (30,40), (40,50), 
+                (50,75), (75,100), (100,150), (150,200)]
+    
+    for lo, hi in maf_bins:
+        mask = (df_all['PIDs - (F410) Mass Air Flow'] >= lo) & \
+               (df_all['PIDs - (F410) Mass Air Flow'] < hi)
+        subset = df_all[mask]
+        
+        if len(subset) >= 5:
+            stft_avg = subset['Fuel - Command - Corrections - AF Correction STFT'].mean()
+            ltft_avg = subset['Fuel - Command - Corrections - AF Learn 1 (LTFT)'].mean()
+            combined = stft_avg + ltft_avg
+            # Only correct if outside -2% to -3% target (preserve rich bias)
+            if combined > -2:
+                correction = -combined / 100
+            elif combined < -5:
+                correction = (-combined - 3) / 100  # Bring back toward -3%
+            else:
+                correction = 0
+            maf_corrections.append({
+                'MAF Range (g/s)': f'{lo}-{hi}',
+                'Combined Trim': f'{combined:+.2f}%',
+                'Correction Factor': f'{1 + correction:.4f}',
+                'Action': 'Increase' if correction > 0.005 else ('Decrease' if correction < -0.005 else 'Keep')
+            })
+    
+    tables['maf_scaling'] = pd.DataFrame(maf_corrections)
+    
+    # PE Target corrections (high RPM WOT fueling)
+    high_load = df_wot[df_wot['Engine - Calculated Load'] > 0.8]
+    pe_corrections = []
+    rpm_bins = [(3000,3500), (3500,4000), (4000,4500), (4500,5000), (5000,5500), (5500,6000)]
+    
+    for lo, hi in rpm_bins:
+        mask = (high_load['Engine - RPM'] >= lo) & (high_load['Engine - RPM'] < hi)
+        subset = high_load[mask]
+        
+        if len(subset) > 0:
+            stft = subset['Fuel - Command - Corrections - AF Correction STFT'].mean()
+            # Current φ assumed ~1.32, adjust based on STFT
+            current_phi = 1.32
+            new_phi = current_phi * (1 + stft/100)
+            pe_corrections.append({
+                'RPM Range': f'{lo}-{hi}',
+                'Observed STFT': f'{stft:+.1f}%',
+                'Current φ (est)': f'{current_phi:.2f}',
+                'Revised φ': f'{new_phi:.3f}',
+                'Action': 'Enrich' if stft > 3 else ('Lean' if stft < -5 else 'OK')
+            })
+    
+    tables['pe_target'] = pd.DataFrame(pe_corrections)
+    
+    # Boost target analysis
+    wot_mask = df_wot['Throttle - Requested Torque - Main Accelerator Position'] > 80
+    wot_df = df_wot[wot_mask]
+    
+    if len(wot_df) > 0:
+        overshoot = (wot_df['Airflow - Turbo - Boost - Manifold Absolute Pressure'] - \
+                    wot_df['Airflow - Turbo - Boost - Boost Target Final (Absolute)']).mean()
+        peak_boost = wot_df['Analytical - Boost Pressure'].max()
+        
+        boost_rec = []
+        if overshoot > 1:
+            reduction_psi = min(overshoot, 2)  # Cap reduction at 2 psi
+            boost_rec.append({
+                'Parameter': 'Boost Target Main',
+                'Current Peak': f'{peak_boost:.1f} psi',
+                'Avg Overshoot': f'{overshoot:+.1f} psi',
+                'Recommended': f'Reduce by {reduction_psi:.1f} psi',
+                'New Target': f'{peak_boost - reduction_psi:.1f} psi'
+            })
+        else:
+            boost_rec.append({
+                'Parameter': 'Boost Target Main',
+                'Current Peak': f'{peak_boost:.1f} psi',
+                'Avg Overshoot': f'{overshoot:+.1f} psi',
+                'Recommended': 'No change needed',
+                'New Target': f'{peak_boost:.1f} psi'
+            })
+        
+        tables['boost_target'] = pd.DataFrame(boost_rec)
+    
+    # Save tables to files
+    save_path = Path(save_dir)
+    save_path.mkdir(parents=True, exist_ok=True)
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+    
+    for name, df in tables.items():
+        filepath = save_path / f'{name}_{timestamp}.csv'
+        df.to_csv(filepath, index=False)
+        print(f"  ✓ Saved: {filepath}")
+    
+    # Also save a combined summary
+    summary_path = save_path / f'revised_tables_summary_{timestamp}.txt'
+    with open(summary_path, 'w') as f:
+        f.write("=" * 60 + "\n")
+        f.write("        REVISED TABLES FOR ATLAS IMPORT\n")
+        f.write(f"        Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n")
+        f.write("=" * 60 + "\n\n")
+        
+        f.write("MAF SCALING CORRECTIONS:\n")
+        f.write("-" * 40 + "\n")
+        f.write(tables['maf_scaling'].to_string(index=False) + "\n\n")
+        
+        f.write("PE TARGET (POWER ENRICHMENT) CORRECTIONS:\n")
+        f.write("-" * 40 + "\n")
+        f.write(tables['pe_target'].to_string(index=False) + "\n\n")
+        
+        if 'boost_target' in tables:
+            f.write("BOOST TARGET RECOMMENDATIONS:\n")
+            f.write("-" * 40 + "\n")
+            f.write(tables['boost_target'].to_string(index=False) + "\n\n")
+        
+        f.write("=" * 60 + "\n")
+        f.write("Import CSVs into Atlas table editor as reference.\n")
+        f.write("Apply corrections conservatively - verify with new logs.\n")
+        f.write("=" * 60 + "\n")
+    
+    print(f"  ✓ Saved summary: {summary_path}")
+    
+    return tables
+
+
+def prompt_for_table_generation(df_all, df_wot):
+    """Prompt user to generate revised tables and ask where to save."""
+    settings = load_settings()
+    last_location = settings.get('last_table_save_location')
+    
+    print("\n" + "=" * 60)
+    print("  GENERATE REVISED TABLES FOR ATLAS?")
+    print("=" * 60)
+    print("\nBased on this analysis, I can generate revised tables for:")
+    print("  • MAF Scaling corrections")
+    print("  • PE Target (power enrichment) adjustments") 
+    print("  • Boost Target recommendations")
+    print()
+    
+    response = input("Generate revised tables? [Y/n]: ").strip().lower()
+    
+    if response in ('', 'y', 'yes'):
+        print()
+        
+        if last_location and Path(last_location).exists():
+            print(f"Last save location: {last_location}")
+            use_last = input("Use same location? [Y/n]: ").strip().lower()
+            
+            if use_last in ('', 'y', 'yes'):
+                save_dir = last_location
+            else:
+                save_dir = input("Enter new save location: ").strip()
+                if not save_dir:
+                    save_dir = last_location
+        else:
+            default_dir = str(Path.home() / 'Documents' / 'Atlas Tables')
+            save_dir = input(f"Save location [{default_dir}]: ").strip()
+            if not save_dir:
+                save_dir = default_dir
+        
+        # Expand user path if needed
+        save_dir = str(Path(save_dir).expanduser())
+        
+        print(f"\nGenerating tables to: {save_dir}")
+        print("-" * 40)
+        
+        generate_revised_tables(df_all, df_wot, save_dir)
+        
+        # Save location for next time
+        settings['last_table_save_location'] = save_dir
+        save_settings(settings)
+        
+        print("\n✅ Tables generated successfully!")
+        print("Import the CSVs into Atlas as reference for table edits.")
+    else:
+        print("Skipping table generation.")
+
+
 def generate_action_items(df, df_wot):
     """Generate prioritized action items."""
     items = []
@@ -503,6 +707,9 @@ def main():
     
     # Generate report with config
     generate_report(df_all, df_wot, output_path, config)
+    
+    # Prompt for table generation
+    prompt_for_table_generation(df_all, df_wot)
 
 
 if __name__ == "__main__":
