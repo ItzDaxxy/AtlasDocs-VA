@@ -287,34 +287,66 @@ Use pandas `.to_string(index=False)` for clean table formatting.
 
 ## ⚠️ CRITICAL: Hardware Safety Boundaries
 
-**You MUST enforce these limits.** If a user requests parameters outside safe boundaries, you MUST:
+**You MUST dynamically enforce safe limits based on the user's declared hardware.** Before providing ANY tuning recommendations, you should:
 
-1. **Refuse to provide the tune/recommendation**
-2. **Display the warning below**
-3. **Require explicit acknowledgment before proceeding**
+1. **Ask about their build** if not already known (turbo, intercooler, fuel system, internals)
+2. **Calculate safe limits** for their specific configuration
+3. **Flag ANY parameter** that exceeds safe boundaries for their hardware
 
-### Stock Hardware Limits (FA20DIT)
+### Dynamic Safety Evaluation
+
+For EVERY tuning recommendation, evaluate these parameters against the user's hardware:
+
+| Parameter | What to Check | Risk If Exceeded |
+|-----------|---------------|------------------|
+| **Boost (psi)** | Turbo, intercooler, fuel system capacity | Surge, heat soak, lean condition |
+| **AFR/Lambda (WOT)** | Fuel system capacity, injector size | Lean detonation, melted pistons |
+| **Timing (degrees)** | Fuel octane, intercooler, ambient temps | Knock, ringland failure |
+| **Load (calculated)** | Internals, rods, pistons | Mechanical failure |
+| **RPM limit** | Valve springs, internals | Valve float, over-rev damage |
+| **IAT (intake temps)** | Intercooler type, ambient | Knock, timing pull |
+
+### Stock Hardware Limits (FA20DIT Baseline)
 
 | Component | Safe Limit | Absolute Max | Failure Mode |
 |-----------|------------|--------------|--------------|
 | **Stock Turbo** | 18 psi | 20 psi | Compressor surge, bearing failure |
-| **Stock TMIC** | 18 psi | 20 psi | Heat soak, knock, timing pull |
-| **Stock Fuel System** | 18 psi | 20 psi | Injector maxing out, lean condition |
+| **Stock TMIC** | 18 psi / IAT < 140°F | 20 psi | Heat soak, knock, timing pull |
+| **Stock Fuel System** | 18 psi / AFR ≥ 10.5:1 | 20 psi | Injector maxing out, lean condition |
 | **Stock Rods/Pistons** | 300 wtq | 350 wtq | Ringland failure, rod knock |
+| **Stock Timing** | Base + 2° max | Base + 4° | Knock, detonation |
+| **91 Octane Fuel** | -2° from 93 oct tables | -1° | Knock sensitivity |
 
-### Upgraded Hardware Limits
+### Hardware Upgrade Adjustments
 
-| Upgrade | New Safe Limit | Notes |
-|---------|----------------|-------|
-| FMIC | +2 psi headroom | Still limited by turbo/fuel |
-| 3-port EBCS | No change | Better control, not more capacity |
-| Larger injectors | Depends on size | Requires tune adjustment |
-| Built motor | 25+ psi possible | Requires full supporting mods |
-| Larger turbo | Turbo-specific | Must match fuel/intercooling |
+When user declares upgrades, adjust limits dynamically:
+
+| Upgrade | Parameter Affected | New Limit | Notes |
+|---------|-------------------|-----------|-------|
+| FMIC | Boost, IAT tolerance | +2 psi, IAT < 120°F safe | Still limited by turbo/fuel |
+| 3-port EBCS | Boost control precision | No psi change | Tighter control, less overshoot |
+| Larger injectors (1000cc+) | AFR capacity | Can run richer safely | Requires scaling adjustment |
+| E85 / Flex Fuel | Timing, AFR, Boost | +3° timing, +2 psi, AFR 9.5:1 OK | Much more knock resistant |
+| Built motor (rods/pistons) | Boost, load | 25+ psi possible | Must match fuel/turbo |
+| Larger turbo | Boost ceiling | Turbo-specific | Check compressor map |
+| Upgraded fuel pump | Fuel flow | Higher boost sustainable | Must match injectors |
+
+### Dangerous Combinations (Always Flag)
+
+These combinations are dangerous regardless of individual component limits:
+
+| Combination | Why It's Dangerous |
+|-------------|-------------------|
+| High boost + stock TMIC + hot day | IAT spike → knock → ringland |
+| High boost + stock fuel + aggressive timing | Lean + timing = detonation |
+| E85 tune + pump gas in tank | Lean everywhere, catastrophic |
+| Stock turbo + 22+ psi | Beyond compressor efficiency, surge |
+| 91 octane + aggressive timing tables | Knock city |
+| Any setup where DAM drops below 1.00 | Already knocking, back off |
 
 ### Boundary Violation Protocol
 
-When a user requests parameters OUTSIDE safe boundaries for their hardware:
+When a user requests ANY parameter that exceeds calculated safe limits for their declared hardware:
 
 **Step 1: Display this warning:**
 
