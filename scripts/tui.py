@@ -11,7 +11,7 @@ from textual.containers import Container, Horizontal, Vertical, ScrollableContai
 from textual.widgets import (
     Header, Footer, Static, DataTable, Button, 
     Label, ProgressBar, TabbedContent, TabPane,
-    DirectoryTree, Input, RichLog
+    DirectoryTree, Input, RichLog, TextArea
 )
 from textual.binding import Binding
 from textual.screen import Screen, ModalScreen
@@ -19,8 +19,11 @@ from textual import events
 from rich.text import Text
 from rich.panel import Panel
 from rich.table import Table
+from rich.markdown import Markdown
 from pathlib import Path
 import pandas as pd
+import json
+import os
 import sys
 
 # Add scripts directory for imports
@@ -259,6 +262,162 @@ class ActionItemsPanel(Static):
                 row['Item'],
                 row['Status']
             )
+
+
+class AIChatScreen(ModalScreen):
+    """Modal screen for AI-powered analysis chat."""
+    
+    BINDINGS = [
+        Binding("escape", "close", "Close"),
+    ]
+    
+    def __init__(self, context: str = "", api_key: str = None):
+        super().__init__()
+        self.context = context
+        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        self.messages = []
+        self.provider = "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="chat-container"):
+            yield Static("🤖 AI Tuning Assistant", id="chat-title")
+            yield ScrollableContainer(Static("", id="chat-history"), id="chat-scroll")
+            if not self.api_key:
+                yield Static("⚠️ No API key found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY env var.", id="api-warning")
+                yield Input(placeholder="Or paste API key here...", id="api-key-input", password=True)
+            yield Input(placeholder="Ask about your datalog analysis...", id="chat-input")
+            with Horizontal(id="chat-buttons"):
+                yield Button("Send", id="send-btn", variant="primary")
+                yield Button("Close", id="close-btn", variant="default")
+    
+    def on_mount(self):
+        if self.context:
+            history = self.query_one("#chat-history", Static)
+            history.update(Text("Analysis context loaded. Ask me anything about your datalog!", style="dim"))
+    
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "send-btn":
+            self._send_message()
+        elif event.button.id == "close-btn":
+            self.dismiss(None)
+    
+    def on_input_submitted(self, event: Input.Submitted):
+        if event.input.id == "chat-input":
+            self._send_message()
+        elif event.input.id == "api-key-input":
+            self.api_key = event.value
+            self.query_one("#api-warning", Static).update("✓ API key set")
+    
+    def _send_message(self):
+        chat_input = self.query_one("#chat-input", Input)
+        user_message = chat_input.value.strip()
+        
+        if not user_message:
+            return
+        
+        chat_input.value = ""
+        
+        # Check for API key
+        if not self.api_key:
+            api_input = self.query("#api-key-input")
+            if api_input:
+                self.api_key = api_input[0].value
+        
+        if not self.api_key:
+            history = self.query_one("#chat-history", Static)
+            history.update(Text("Please set an API key first.", style="red"))
+            return
+        
+        # Add user message to history
+        self.messages.append({"role": "user", "content": user_message})
+        self._update_history()
+        
+        # Get AI response
+        self._get_ai_response(user_message)
+    
+    def _update_history(self):
+        history = self.query_one("#chat-history", Static)
+        lines = []
+        for msg in self.messages[-10:]:  # Show last 10 messages
+            if msg["role"] == "user":
+                lines.append(Text(f"You: {msg['content']}\n", style="cyan"))
+            else:
+                lines.append(Text(f"AI: {msg['content']}\n", style="green"))
+        
+        combined = Text()
+        for line in lines:
+            combined.append(line)
+        history.update(combined)
+    
+    def _get_ai_response(self, user_message: str):
+        """Get response from AI API."""
+        history = self.query_one("#chat-history", Static)
+        
+        try:
+            if "anthropic" in self.api_key.lower()[:10] or self.provider == "anthropic":
+                response = self._call_anthropic(user_message)
+            else:
+                response = self._call_openai(user_message)
+            
+            self.messages.append({"role": "assistant", "content": response})
+            self._update_history()
+            
+        except Exception as e:
+            self.messages.append({"role": "assistant", "content": f"Error: {e}"})
+            self._update_history()
+    
+    def _call_anthropic(self, user_message: str) -> str:
+        """Call Anthropic Claude API."""
+        try:
+            import anthropic
+            client = anthropic.Anthropic(api_key=self.api_key)
+            
+            system_prompt = f"""You are an expert FA20 engine tuner analyzing datalog data. 
+You have deep knowledge of fuel trims, knock detection, boost control, and ECU tuning for the 2015-2021 Subaru WRX.
+
+Current analysis context:
+{self.context}
+
+Provide specific, actionable tuning advice based on the data. Be concise but thorough."""
+            
+            response = client.messages.create(
+                model="claude-sonnet-4-20250514",
+                max_tokens=1024,
+                system=system_prompt,
+                messages=[{"role": m["role"], "content": m["content"]} for m in self.messages if m["role"] in ["user", "assistant"]]
+            )
+            return response.content[0].text
+        except ImportError:
+            return "anthropic package not installed. Run: pip install anthropic"
+    
+    def _call_openai(self, user_message: str) -> str:
+        """Call OpenAI API."""
+        try:
+            import openai
+            client = openai.OpenAI(api_key=self.api_key)
+            
+            system_prompt = f"""You are an expert FA20 engine tuner analyzing datalog data.
+You have deep knowledge of fuel trims, knock detection, boost control, and ECU tuning for the 2015-2021 Subaru WRX.
+
+Current analysis context:
+{self.context}
+
+Provide specific, actionable tuning advice based on the data. Be concise but thorough."""
+            
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend([{"role": m["role"], "content": m["content"]} for m in self.messages if m["role"] in ["user", "assistant"]])
+            
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=messages,
+                max_tokens=1024
+            )
+            return response.choices[0].message.content
+        except ImportError:
+            return "openai package not installed. Run: pip install openai"
+    
+    def action_close(self):
+        self.dismiss(None)
 
 
 class SaveFileScreen(ModalScreen):
@@ -694,6 +853,64 @@ class DAMGoodApp(App):
         min-width: 12;
         margin: 0 1;
     }
+    
+    /* AI Chat dialog */
+    #chat-container {
+        width: 80%;
+        height: 80%;
+        background: $surface;
+        border: solid $success;
+        padding: 1;
+    }
+    
+    #chat-title {
+        text-align: center;
+        text-style: bold;
+        background: $success;
+        color: #000;
+        padding: 0 1;
+        height: 1;
+        margin-bottom: 1;
+    }
+    
+    #chat-scroll {
+        height: 1fr;
+        background: $surface-dark;
+        border: solid $border-color;
+        margin-bottom: 1;
+        padding: 1;
+    }
+    
+    #chat-history {
+        width: 100%;
+    }
+    
+    #api-warning {
+        color: $warning;
+        height: 1;
+        margin-bottom: 1;
+        text-align: center;
+    }
+    
+    #api-key-input {
+        margin-bottom: 1;
+    }
+    
+    #chat-input {
+        margin-bottom: 1;
+        background: $surface-dark;
+        border: solid $border-color;
+    }
+    
+    #chat-buttons {
+        height: 1;
+        align: center middle;
+    }
+    
+    #chat-buttons Button {
+        min-width: 12;
+        margin: 0 1;
+    }
     """
     
     TITLE = "DAMGood"
@@ -705,6 +922,7 @@ class DAMGoodApp(App):
         Binding("g", "generate_tables", "Generate"),
         Binding("r", "refresh", "Refresh"),
         Binding("x", "reset", "Reset"),
+        Binding("a", "ai_chat", "AI Chat"),
     ]
     
     def __init__(self):
@@ -1038,6 +1256,46 @@ class DAMGoodApp(App):
         self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
         
         self.update_status("Reset complete - Ready")
+    
+    def action_ai_chat(self):
+        """Open AI chat for detailed analysis."""
+        if self.df_all is None:
+            self.update_status("Load a datalog first to chat with AI")
+            return
+        
+        # Build context from current analysis
+        context_parts = []
+        context_parts.append(f"Log type: {self.log_type}")
+        context_parts.append(f"Total samples: {len(self.df_all)}")
+        
+        # Add executive summary
+        summary = generate_executive_summary(self.df_all, self.config)
+        context_parts.append("\nExecutive Summary:")
+        for _, row in summary.iterrows():
+            context_parts.append(f"  {row['Parameter']}: {row['Value']} ({row['Status']})")
+        
+        # Add key stats
+        if 'Ignition - Dynamic Advance Multiplier' in self.df_all.columns:
+            dam_min = self.df_all['Ignition - Dynamic Advance Multiplier'].min()
+            context_parts.append(f"\nDAM minimum: {dam_min:.2f}")
+        
+        if 'Ignition - Feedback Knock' in self.df_all.columns:
+            fbk_min = self.df_all['Ignition - Feedback Knock'].min()
+            context_parts.append(f"Feedback Knock minimum: {fbk_min:.2f}°")
+        
+        if 'Fuel - Command - Corrections - AF Correction STFT' in self.df_all.columns:
+            stft_mean = self.df_all['Fuel - Command - Corrections - AF Correction STFT'].mean()
+            stft_min = self.df_all['Fuel - Command - Corrections - AF Correction STFT'].min()
+            stft_max = self.df_all['Fuel - Command - Corrections - AF Correction STFT'].max()
+            context_parts.append(f"STFT: mean={stft_mean:.1f}%, range=[{stft_min:.1f}%, {stft_max:.1f}%]")
+        
+        if 'Analytical - Boost Pressure' in self.df_all.columns:
+            boost_max = self.df_all['Analytical - Boost Pressure'].max()
+            context_parts.append(f"Peak boost: {boost_max:.1f} psi")
+        
+        context = "\n".join(context_parts)
+        
+        self.push_screen(AIChatScreen(context=context))
 
 
 def main():
