@@ -65,7 +65,7 @@ export ANTHROPIC_API_KEY="sk-ant-..."  # or
 export OPENAI_API_KEY="sk-..."
 ```
 
-![TUI Screenshot](docs/tui-screenshot.png)
+![TUI Screenshot](assets/tui-screenshot.png)
 
 ### Option 2: Static Scripts
 Run the analyzer directly from the command line for quick, automated reports:
