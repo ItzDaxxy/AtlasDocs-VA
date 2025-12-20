@@ -320,6 +320,17 @@ class DAMGoodApp(App):
         background: $surface;
         border-right: solid $border-color;
         padding: 0 1;
+        align: center top;
+    }
+    
+    #sidebar Static {
+        width: 100%;
+        text-align: center;
+    }
+    
+    #sidebar Button {
+        width: 100%;
+        text-align: center;
     }
     
     #content {
@@ -336,6 +347,8 @@ class DAMGoodApp(App):
         margin: 1 0 0 0;
         text-style: bold;
         height: 1;
+        text-align: center;
+        width: 100%;
     }
     
     #summary-panel {
