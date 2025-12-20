@@ -323,8 +323,10 @@ class DAMGoodApp(App):
     }
     
     #content {
-        width: 100%;
+        width: 1fr;
+        max-width: 100%;
         padding: 0 1;
+        overflow-x: hidden;
     }
     
     .section-title {
@@ -341,6 +343,15 @@ class DAMGoodApp(App):
         max-height: 10;
         border: solid $border-color;
         margin: 0 0 1 0;
+        width: 100%;
+    }
+    
+    #actions-panel {
+        height: auto;
+        max-height: 10;
+        border: solid $border-color;
+        margin: 0 0 1 0;
+        width: 100%;
     }
     
     DataTable {
@@ -348,6 +359,8 @@ class DAMGoodApp(App):
         max-height: 12;
         margin: 0;
         background: $surface;
+        width: 100%;
+        overflow-x: auto;
     }
     
     DataTable > .datatable--header {
@@ -520,6 +533,18 @@ class DAMGoodApp(App):
     /* Scrollable containers */
     ScrollableContainer {
         background: $surface-dark;
+        width: 100%;
+    }
+    
+    /* Panel containers */
+    FuelTrimPanel, BoostPanel, PowerEnrichmentPanel, ActionItemsPanel {
+        width: 100%;
+        height: auto;
+    }
+    
+    /* Tab content */
+    TabPane > * {
+        width: 100%;
     }
     """
     
