@@ -467,37 +467,39 @@ class DAMGoodApp(App):
             parts.append(f"Samples: {len(self.df_all)}")
         info.update(" | ".join(parts) if parts else "No datalogs loaded")
     
-    async def action_load_wot(self):
+    def action_load_wot(self):
         """Load WOT datalog file."""
         start_path = self.wot_path.parent if self.wot_path else Path.home()
-        result = await self.push_screen_wait(
-            FilePickerScreen(str(start_path), "wot")
-        )
-        if result:
-            self.wot_path = Path(result)
-            try:
-                self.df_wot = load_datalog(str(self.wot_path))
-                self.query_one("#wot-file-label", Static).update(f"✓ {self.wot_path.name}")
-                self._merge_and_analyze()
-                self.update_status(f"Loaded WOT: {len(self.df_wot)} samples")
-            except Exception as e:
-                self.update_status(f"Error: {e}")
+        
+        def handle_wot_result(result):
+            if result:
+                self.wot_path = Path(result)
+                try:
+                    self.df_wot = load_datalog(str(self.wot_path))
+                    self.query_one("#wot-file-label", Static).update(f"✓ {self.wot_path.name}")
+                    self._merge_and_analyze()
+                    self.update_status(f"Loaded WOT: {len(self.df_wot)} samples")
+                except Exception as e:
+                    self.update_status(f"Error: {e}")
+        
+        self.push_screen(FilePickerScreen(str(start_path), "wot"), handle_wot_result)
     
-    async def action_load_cruise(self):
+    def action_load_cruise(self):
         """Load cruise datalog file."""
         start_path = self.cruise_path.parent if self.cruise_path else Path.home()
-        result = await self.push_screen_wait(
-            FilePickerScreen(str(start_path), "cruise")
-        )
-        if result:
-            self.cruise_path = Path(result)
-            try:
-                self.df_cruise = load_datalog(str(self.cruise_path))
-                self.query_one("#cruise-file-label", Static).update(f"✓ {self.cruise_path.name}")
-                self._merge_and_analyze()
-                self.update_status(f"Loaded Cruise: {len(self.df_cruise)} samples")
-            except Exception as e:
-                self.update_status(f"Error: {e}")
+        
+        def handle_cruise_result(result):
+            if result:
+                self.cruise_path = Path(result)
+                try:
+                    self.df_cruise = load_datalog(str(self.cruise_path))
+                    self.query_one("#cruise-file-label", Static).update(f"✓ {self.cruise_path.name}")
+                    self._merge_and_analyze()
+                    self.update_status(f"Loaded Cruise: {len(self.df_cruise)} samples")
+                except Exception as e:
+                    self.update_status(f"Error: {e}")
+        
+        self.push_screen(FilePickerScreen(str(start_path), "cruise"), handle_cruise_result)
     
     def _merge_and_analyze(self):
         """Merge datalogs and run analysis."""
