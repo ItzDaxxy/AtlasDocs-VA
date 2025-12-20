@@ -97,27 +97,35 @@ AI:  [analyzes CSV] Your DAM is solid at 1.00, no knock events.
 
 Unlike static scripts, the AI can answer follow-up questions, explain its reasoning, and adapt recommendations to your specific build and situation.
 
+## Installation
+
+```bash
+# Clone the repo
+git clone https://github.com/ItzDaxxy/DAMGood.git
+cd DAMGood
+
+# Run the installer (creates venv, installs deps, adds 'damgood' command)
+./install.sh
+```
+
+After installation, run DAMGood from anywhere:
+```bash
+damgood
+```
+
+**Requirements:** Python 3.9+
+
 ## Quick Start
 
 ```bash
 # Initialize a new tuning project (interactive mod list intake)
 ./scripts/setup_tuning_project.sh ~/my-wrx-tune
 
-# Analyze WOT and cruise datalogs
+# Launch the interactive TUI
+damgood
+
+# Or analyze from command line
 python scripts/analyze_datalog.py --wot datalogs/wot.csv --cruise datalogs/cruise.csv
-
-# Or analyze a single datalog
-python scripts/analyze_datalog.py datalog.csv
-```
-
-**Requirements:** Python 3.9+, pandas, textual
-
-```bash
-pip install pandas textual rich pyyaml
-# Optional: for web server
-pip install textual-serve
-# Optional: for AI chat
-pip install anthropic  # or openai
 ```
 
 ## New Project Setup Flow

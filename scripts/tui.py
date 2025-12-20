@@ -35,30 +35,124 @@ from analyze_datalog import (
     generate_boost_analysis, generate_pe_analysis,
     generate_action_items, DEFAULT_CONFIG
 )
+from api_keys import get_api_key, save_api_key, detect_provider_from_key, is_keyring_available
+from session import TuningSession, PhaseAnalysis
+
+
+class PhaseLabel(Static):
+    """Clickable label for a tuning phase."""
+    
+    def __init__(self, phase_num: int, on_select: callable, is_active: bool = False, summary: str = "", **kwargs):
+        super().__init__(**kwargs)
+        self.phase_num = phase_num
+        self.on_select = on_select
+        self.is_active = is_active
+        self.summary = summary
+        self._render_label()
+    
+    def _render_label(self):
+        prefix = "▶" if self.is_active else " "
+        label = f"{prefix} Phase {self.phase_num}"
+        if self.summary:
+            label += f" ({self.summary})"
+        self.update(label)
+        if self.is_active:
+            self.styles.color = "#ffd700"
+            self.styles.text_style = "bold"
+        else:
+            self.styles.color = "#8899aa"
+            self.styles.text_style = "none"
+    
+    def set_active(self, active: bool):
+        self.is_active = active
+        self._render_label()
+    
+    def on_click(self) -> None:
+        self.on_select(self.phase_num)
 
 
 class LoadedFileLabel(Static):
-    """A clickable label for loaded files - click to remove."""
+    """A clickable label for loaded files - styled like a button."""
     
-    def __init__(self, filepath: Path, on_remove: callable, **kwargs):
+    DEFAULT_CSS = """
+    LoadedFileLabel {
+        width: 100%;
+        height: 1;
+        padding: 0 1;
+        background: #21262d;
+        color: #8899aa;
+        text-align: left;
+        margin-bottom: 0;
+    }
+    LoadedFileLabel.active {
+        background: #003366;
+        color: #ffd700;
+        text-style: bold;
+    }
+    LoadedFileLabel:hover {
+        background: #00d26a;
+        color: #000;
+    }
+    """
+    
+    def __init__(self, filepath: Path, on_select: callable, on_remove: callable, is_active: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.filepath = filepath
+        self.on_select = on_select
         self.on_remove = on_remove
-        self.update(f"✓ {filepath.name}")
+        self.is_active = is_active
+        self._render_label()
     
-    def on_enter(self) -> None:
-        """Mouse entered - show remove hint."""
-        self.update(f"✕ {self.filepath.name} (click to remove)")
-        self.styles.color = "#ff6b35"
+    def _render_label(self):
+        """Render the label based on state."""
+        name = self.filepath.name
+        if len(name) > 20:
+            name = name[:17] + "..."
+        if self.is_active:
+            self.update(f"▶ {name}")
+            self.add_class("active")
+        else:
+            self.update(f"  {name}")
+            self.remove_class("active")
     
-    def on_leave(self) -> None:
-        """Mouse left - restore normal view."""
-        self.update(f"✓ {self.filepath.name}")
-        self.styles.color = "#00d26a"
+    def set_active(self, active: bool):
+        """Set the active state of this label."""
+        self.is_active = active
+        self._render_label()
+    
+    def on_click(self, event) -> None:
+        """Handle click - select file, or remove if shift-click."""
+        if event.shift:
+            self.on_remove(self.filepath)
+        else:
+            self.on_select(self.filepath)
+
+
+class AllCombinedLabel(Static):
+    """Clickable label for 'All Combined' view."""
+    
+    def __init__(self, on_click_callback: callable, **kwargs):
+        super().__init__(**kwargs)
+        self.on_click_callback = on_click_callback
+        self.is_active = True
+        self._render_label()
+    
+    def _render_label(self):
+        if self.is_active:
+            self.update("▶ All Combined")
+            self.styles.color = "#ffd700"
+            self.styles.text_style = "bold"
+        else:
+            self.update("  All Combined")
+            self.styles.color = "#8899aa"
+            self.styles.text_style = "none"
+    
+    def set_active(self, active: bool):
+        self.is_active = active
+        self._render_label()
     
     def on_click(self) -> None:
-        """Remove this file from the analysis."""
-        self.on_remove(self.filepath)
+        self.on_click_callback()
 
 
 class StatusIndicator(Static):
@@ -274,17 +368,24 @@ class AIChatScreen(ModalScreen):
     def __init__(self, context: str = "", api_key: str = None):
         super().__init__()
         self.context = context
-        self.api_key = api_key or os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY")
         self.messages = []
-        self.provider = "anthropic" if os.environ.get("ANTHROPIC_API_KEY") else "openai"
+        self.key_was_manually_entered = False
+        
+        # Try to get API key from secure storage or env
+        stored_key, stored_provider = get_api_key()
+        self.api_key = api_key or stored_key
+        self.provider = stored_provider or "anthropic"
     
     def compose(self) -> ComposeResult:
         with Container(id="chat-container"):
             yield Static("🤖 AI Tuning Assistant", id="chat-title")
             yield ScrollableContainer(Static("", id="chat-history"), id="chat-scroll")
             if not self.api_key:
-                yield Static("⚠️ No API key found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY env var.", id="api-warning")
-                yield Input(placeholder="Or paste API key here...", id="api-key-input", password=True)
+                if is_keyring_available():
+                    yield Static("⚠️ No API key found. Enter your key below (will be saved securely).", id="api-warning")
+                else:
+                    yield Static("⚠️ No API key found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY env var.", id="api-warning")
+                yield Input(placeholder="Paste API key here (sk-ant-... or sk-...)...", id="api-key-input", password=True)
             yield Input(placeholder="Ask about your datalog analysis...", id="chat-input")
             with Horizontal(id="chat-buttons"):
                 yield Button("Send", id="send-btn", variant="primary")
@@ -306,7 +407,21 @@ class AIChatScreen(ModalScreen):
             self._send_message()
         elif event.input.id == "api-key-input":
             self.api_key = event.value
-            self.query_one("#api-warning", Static).update("✓ API key set")
+            self.key_was_manually_entered = True
+            
+            # Detect provider from key format
+            detected = detect_provider_from_key(event.value)
+            if detected:
+                self.provider = detected
+            
+            # Try to save to secure storage
+            if is_keyring_available() and self.provider:
+                if save_api_key(self.provider, event.value):
+                    self.query_one("#api-warning", Static).update(f"✓ API key saved securely ({self.provider})")
+                else:
+                    self.query_one("#api-warning", Static).update(f"✓ API key set ({self.provider}) - could not save to keyring")
+            else:
+                self.query_one("#api-warning", Static).update(f"✓ API key set ({self.provider})")
     
     def _send_message(self):
         chat_input = self.query_one("#chat-input", Input)
@@ -516,13 +631,52 @@ class FilePickerScreen(ModalScreen):
             self.dismiss(self.selected_file)
 
 
+class PhaseSelectScreen(ModalScreen):
+    """Modal screen for selecting a saved phase to view."""
+    
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+    
+    def __init__(self, phases: list, on_select: callable):
+        super().__init__()
+        self.phases = phases
+        self.on_select = on_select
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="phase-select-container"):
+            yield Static("📋 Select Phase", id="phase-select-title")
+            yield Static("")
+            with Vertical(id="phase-list"):
+                for phase in self.phases:
+                    btn = Button(
+                        f"Phase {phase.phase_number} - {phase.samples} samples ({phase.log_type})",
+                        id=f"phase-{phase.phase_number}",
+                        variant="default"
+                    )
+                    yield btn
+            yield Static("")
+            yield Button("Cancel", id="cancel-btn", variant="default")
+    
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "cancel-btn":
+            self.dismiss(None)
+        elif event.button.id.startswith("phase-"):
+            phase_num = int(event.button.id.split("-")[1])
+            self.dismiss(None)
+            self.on_select(phase_num)
+    
+    def action_cancel(self):
+        self.dismiss(None)
+
+
 class DAMGoodApp(App):
     """DAMGood - FA20 Datalog Analyzer TUI."""
     
     CSS = """
-    /* DAMGood Theme - Racing Inspired */
-    $accent: #ff6b35;
-    $accent-dim: #cc5529;
+    /* DAMGood Theme - World Rally Blue (Subaru) */
+    $accent: #003366;
+    $accent-dim: #002244;
     $success: #00d26a;
     $warning: #ffd23f;
     $danger: #ff3366;
@@ -543,6 +697,12 @@ class DAMGoodApp(App):
     
     Footer {
         background: $surface-light;
+        border-top: solid $accent;
+        padding: 0 1;
+    }
+    
+    #status-label {
+        margin-bottom: 1;
     }
     
     #main-container {
@@ -641,8 +801,8 @@ class DAMGoodApp(App):
     }
     
     Button:hover {
-        background: $accent-dim;
-        color: #fff;
+        background: $success;
+        color: #000;
     }
     
     Button:focus {
@@ -651,32 +811,18 @@ class DAMGoodApp(App):
     
     #load-datalog-btn {
         background: $accent;
-        color: #000;
+        color: #fff;
         text-style: bold;
         margin-bottom: 1;
     }
     
     #load-datalog-btn:hover {
-        background: $accent-dim;
-        color: #fff;
+        background: $success;
+        color: #000;
     }
     
     #add-datalog-btn {
         background: $surface-light;
-        margin-bottom: 1;
-    }
-    
-    #generate-btn {
-        background: $success;
-        color: #000;
-        margin-bottom: 1;
-    }
-    
-    #generate-btn:hover {
-        background: #00b359;
-    }
-    
-    #export-btn {
         margin-bottom: 1;
     }
     
@@ -685,10 +831,19 @@ class DAMGoodApp(App):
         height: auto;
     }
     
+    #file-help-label {
+        color: #555555;
+        text-style: italic;
+        height: 2;
+        text-align: left;
+        padding: 0 1;
+        margin-top: 1;
+    }
+    
     #log-type-label {
         color: $warning;
         height: 1;
-        margin-bottom: 1;
+        margin-top: 1;
     }
     
     #status-label {
@@ -928,10 +1083,17 @@ class DAMGoodApp(App):
     def __init__(self):
         super().__init__()
         self.datalogs = []  # List of loaded datalog paths
-        self.df_all = None
+        self.datalog_dfs = {}  # Dict mapping filepath -> (df, log_type)
+        self.df_all = None  # Combined or single-file view
         self.df_wot = None  # Auto-detected WOT portions
         self.config = load_config(None)
         self.log_type = "Unknown"  # Will be auto-detected
+        self.active_view = None  # Path to currently viewed file
+        
+        # Session/phase tracking
+        self.session = TuningSession()
+        self.current_phase_dfs = {}  # Dataframes for current phase being built
+        self.phase_committed = False  # True once phase is finalized
     
     def compose(self) -> ComposeResult:
         yield Header()
@@ -939,19 +1101,38 @@ class DAMGoodApp(App):
         with Horizontal(id="main-container"):
             # Sidebar
             with Vertical(id="sidebar"):
+                # Datalogs section
                 yield Static("📁 Datalogs", classes="section-title")
-                yield Static("")  # Spacer
+                yield Static("", id="phase-info-label")
                 yield Button("Load Datalog", id="load-datalog-btn", variant="success")
                 yield Button("Add Another", id="add-datalog-btn", variant="default", disabled=True)
                 yield Vertical(id="loaded-files-container")
+                yield Static("click: view\nshift+click: remove", id="file-help-label")
                 yield Static("", id="log-type-label")
+                
+                # Phase management
+                yield Static("📋 Phases", classes="section-title")
                 yield Static("")  # Spacer
-                yield Static("⚡ Actions", classes="section-title")
+                yield Button("Save → Phase 1", id="save-phase-btn", variant="default", disabled=True)
+                yield Button("Select Phase", id="select-phase-btn", variant="default", disabled=True)
                 yield Static("")  # Spacer
-                yield Button("Generate Tables", id="generate-btn", variant="primary")
-                yield Button("Export Report", id="export-btn")
+                
+                # Table generation
+                yield Static("📊 Output", classes="section-title")
                 yield Static("")  # Spacer
-                yield Static("📊 Status", classes="section-title")
+                yield Button("Generate Tables", id="generate-btn", variant="default", disabled=True)
+                yield Button("Export Report", id="export-btn", variant="default", disabled=True)
+                yield Static("")  # Spacer
+                
+                # Session management
+                yield Static("💾 Session", classes="section-title")
+                yield Static("")  # Spacer
+                yield Button("Save Session", id="save-session-btn", variant="default", disabled=True)
+                yield Button("Load Session", id="load-session-btn", variant="default")
+                yield Static("")  # Spacer
+                
+                # Status
+                yield Static("📡 Status", classes="section-title")
                 yield Static("")  # Spacer
                 yield Static("Ready", id="status-label")
             
@@ -981,6 +1162,8 @@ class DAMGoodApp(App):
     def on_mount(self):
         """Called when app is mounted."""
         self.update_status("Ready - Press 'L' to load datalog")
+        # Initialize phase display
+        self._update_phase_display()
     
     def update_status(self, message: str):
         """Update the status label."""
@@ -996,7 +1179,7 @@ class DAMGoodApp(App):
         if self.df_all is not None:
             parts.append(f"Samples: {len(self.df_all)}")
         if hasattr(self, 'log_type') and self.log_type:
-            parts.append(f"Type: {self.log_type}")
+            parts.append(f"Active: {self.log_type}")
         info.update(" | ".join(parts) if parts else "No datalogs loaded")
     
     def _validate_and_load(self, path: Path) -> pd.DataFrame:
@@ -1053,12 +1236,27 @@ class DAMGoodApp(App):
                 try:
                     df = self._validate_and_load(path)
                     self.datalogs.append(path)
-                    # Merge with existing data
-                    if self.df_all is not None:
-                        combined = pd.concat([self.df_all, df], ignore_index=True)
-                        self._process_datalog(combined, path, append=True)
-                    else:
-                        self._process_datalog(df, path)
+                    
+                    # Store this file's individual dataframe
+                    log_type, _, df_wot = self._detect_log_type(df)
+                    self.datalog_dfs[path] = (df, log_type, df_wot)
+                    
+                    # Rebuild combined view but keep focus on individual file
+                    self._rebuild_combined_view()
+                    self.active_view = path  # Focus on the newly added file
+                    self.df_all = df
+                    self.df_wot = df_wot
+                    self.log_type = log_type
+                    
+                    # Enable buttons
+                    self.query_one("#add-datalog-btn", Button).disabled = False
+                    self.query_one("#generate-btn", Button).disabled = False
+                    self.query_one("#export-btn", Button).disabled = False
+                    
+                    self._update_file_list()
+                    self.query_one("#log-type-label", Static).update(f"Active: {self.log_type}")
+                    self._analyze()
+                    self.update_status(f"Added: {path.name} | {len(self.df_all)} total samples")
                 except ValueError as e:
                     self.update_status(f"⚠️ {e}")
                 except Exception as e:
@@ -1100,19 +1298,67 @@ class DAMGoodApp(App):
     
     def _process_datalog(self, df: pd.DataFrame, path: Path, append: bool = False):
         """Process loaded datalog and update UI."""
-        # Auto-detect log type
-        self.log_type, self.df_all, self.df_wot = self._detect_log_type(df)
+        # Store individual dataframe with its detected type
+        log_type, _, df_wot = self._detect_log_type(df)
+        self.datalog_dfs[path] = (df, log_type, df_wot)
         
-        # Enable "Add Another" button now that we have data
+        # Always focus on the individual file just loaded
+        self.active_view = path
+        self.df_all = df
+        self.df_wot = df_wot
+        self.log_type = log_type
+        
+        # Enable buttons now that we have data
         self.query_one("#add-datalog-btn", Button).disabled = False
+        self.query_one("#generate-btn", Button).disabled = False
+        self.query_one("#export-btn", Button).disabled = False
         
         # Update file labels with clickable items
         self._update_file_list()
-        self.query_one("#log-type-label", Static).update(f"Type: {self.log_type}")
         
         # Run analysis
         self._analyze()
-        self.update_status(f"Loaded: {len(self.df_all)} samples | {self.log_type}")
+        self.update_status(f"Loaded: {path.name} | {len(self.df_all)} samples | {self.log_type}")
+    
+    def _rebuild_combined_view(self):
+        """Rebuild the combined dataframe from all loaded datalogs."""
+        if not self.datalog_dfs:
+            self.df_all = None
+            self.df_wot = None
+            self.log_type = "Unknown"
+            return
+        
+        combined_df = pd.concat([df for df, _, _ in self.datalog_dfs.values()], ignore_index=True)
+        self.log_type, self.df_all, self.df_wot = self._detect_log_type(combined_df)
+    
+    def _select_view(self, filepath):
+        """Select a specific datalog to view."""
+        # Ensure filepath is a Path object for consistent comparison
+        filepath = Path(filepath) if not isinstance(filepath, Path) else filepath
+        
+        # Skip if already viewing this file
+        if self.active_view == filepath:
+            return
+        
+        if filepath in self.datalog_dfs:
+            self.active_view = filepath
+            df, log_type, df_wot = self.datalog_dfs[filepath]
+            self.df_all = df
+            self.df_wot = df_wot
+            self.log_type = log_type
+            
+            # Update UI without recreating all labels - just update active states
+            try:
+                container = self.query_one("#loaded-files-container", Vertical)
+                for label in container.children:
+                    if isinstance(label, LoadedFileLabel):
+                        label.set_active(label.filepath == filepath)
+            except Exception:
+                pass
+            
+            self.query_one("#log-type-label", Static).update(f"Active: {self.log_type}")
+            self._analyze()
+            self.update_status(f"Viewing: {filepath.name} | {len(self.df_all)} samples")
     
     def _update_file_list(self):
         """Update the clickable file list in the sidebar."""
@@ -1120,7 +1366,8 @@ class DAMGoodApp(App):
         container.remove_children()
         
         for filepath in self.datalogs:
-            label = LoadedFileLabel(filepath, self._remove_datalog)
+            is_active = (self.active_view == filepath)
+            label = LoadedFileLabel(filepath, self._select_view, self._remove_datalog, is_active=is_active)
             container.mount(label)
     
     def _remove_datalog(self, filepath: Path):
@@ -1128,19 +1375,21 @@ class DAMGoodApp(App):
         if filepath in self.datalogs:
             self.datalogs.remove(filepath)
             
+            # Remove from stored dataframes
+            if filepath in self.datalog_dfs:
+                del self.datalog_dfs[filepath]
+            
             if self.datalogs:
-                # Reload remaining files
-                combined_df = None
-                for path in self.datalogs:
-                    df = load_datalog(str(path))
-                    if combined_df is None:
-                        combined_df = df
-                    else:
-                        combined_df = pd.concat([combined_df, df], ignore_index=True)
+                # If we were viewing the removed file, switch to first remaining file
+                if self.active_view == filepath:
+                    self.active_view = self.datalogs[0]
+                    df, log_type, df_wot = self.datalog_dfs[self.active_view]
+                    self.df_all = df
+                    self.df_wot = df_wot
+                    self.log_type = log_type
                 
-                self.log_type, self.df_all, self.df_wot = self._detect_log_type(combined_df)
                 self._update_file_list()
-                self.query_one("#log-type-label", Static).update(f"Type: {self.log_type}")
+                self.query_one("#log-type-label", Static).update(f"Active: {self.log_type}")
                 self._analyze()
                 self.update_status(f"Removed {filepath.name} | {len(self.df_all)} samples remaining")
             else:
@@ -1148,6 +1397,7 @@ class DAMGoodApp(App):
                 self.df_all = None
                 self.df_wot = None
                 self.log_type = "Unknown"
+                self.active_view = None
                 self._update_file_list()
                 self.query_one("#log-type-label", Static).update("")
                 self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
@@ -1166,6 +1416,7 @@ class DAMGoodApp(App):
         self.query_one("#actions-panel", ActionItemsPanel).update_data(self.df_all, self.df_wot)
         
         self.update_file_info()
+        self._update_phase_display()
     
     def on_button_pressed(self, event: Button.Pressed):
         """Handle button presses."""
@@ -1177,6 +1428,14 @@ class DAMGoodApp(App):
             self.action_generate_tables()
         elif event.button.id == "export-btn":
             self.action_export_report()
+        elif event.button.id == "save-phase-btn":
+            self._save_phase_and_continue()
+        elif event.button.id == "select-phase-btn":
+            self._show_phase_selector()
+        elif event.button.id == "save-session-btn":
+            self.action_save_session()
+        elif event.button.id == "load-session-btn":
+            self.action_load_session()
     
     def action_generate_tables(self):
         """Generate revised tables."""
@@ -1245,21 +1504,36 @@ class DAMGoodApp(App):
     def action_reset(self):
         """Reset everything back to default state."""
         self.datalogs = []
+        self.datalog_dfs = {}
         self.df_all = None
         self.df_wot = None
         self.log_type = "Unknown"
+        self.active_view = None
         
         # Clear file list
         container = self.query_one("#loaded-files-container", Vertical)
         container.remove_children()
         
-        # Disable "Add Another" button
+        # Disable buttons
         self.query_one("#add-datalog-btn", Button).disabled = True
+        self.query_one("#generate-btn", Button).disabled = True
+        self.query_one("#export-btn", Button).disabled = True
         
         # Reset labels
         self.query_one("#log-type-label", Static).update("")
-        self.query_one("#file-info", Static).update("No datalogs loaded")
+        self.query_one("#file-info", Static).update("")
+        self.query_one("#phase-info-label", Static).update("")
         self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
+        
+        # Clear action items table
+        actions_table = self.query_one("#actions-panel", ActionItemsPanel).query_one("#actions-table", DataTable)
+        actions_table.clear(columns=True)
+        
+        # Reset session/phase state
+        self.session = TuningSession()
+        self.current_phase_dfs = {}
+        self.phase_committed = False
+        self._update_phase_display()
         
         self.update_status("Reset complete - Ready")
     
@@ -1302,6 +1576,290 @@ class DAMGoodApp(App):
         context = "\n".join(context_parts)
         
         self.push_screen(AIChatScreen(context=context))
+    
+    # ========== Phase/Session Management ==========
+    
+    def _update_phase_display(self):
+        """Update the phase info and button states."""
+        next_phase = self.session.next_phase_number
+        
+        # Update phase info label
+        info_label = self.query_one("#phase-info-label", Static)
+        if self.session.phases:
+            info_label.update(f"Phase {len(self.session.phases)} saved")
+        else:
+            info_label.update("")
+        
+        # Update button states and labels
+        self._update_phase_buttons()
+    
+    def _update_phase_buttons(self):
+        """Update phase-related button states."""
+        has_data = self.df_all is not None
+        has_phases = len(self.session.phases) > 0
+        next_phase = self.session.next_phase_number
+        
+        # Save phase button: enabled when we have uncommitted data
+        save_btn = self.query_one("#save-phase-btn", Button)
+        save_btn.disabled = not has_data or self.phase_committed
+        save_btn.label = f"Save → Phase {next_phase}"
+        
+        # Select phase button: enabled when we have saved phases
+        select_btn = self.query_one("#select-phase-btn", Button)
+        select_btn.disabled = not has_phases
+        
+        # Save session: enabled when we have any committed phases
+        session_btn = self.query_one("#save-session-btn", Button)
+        session_btn.disabled = not has_phases
+    
+    def _select_phase(self, phase_num: int):
+        """Switch to viewing a specific phase."""
+        phase = self.session.get_phase(phase_num)
+        if phase:
+            self.session.set_active_phase(phase_num)
+            # Load the phase's dataframe if we have it cached
+            # For now, show the stored metrics
+            self._update_phase_display()
+            self.update_status(f"Viewing Phase {phase_num} ({phase.samples} samples)")
+    
+    def _save_phase_and_continue(self):
+        """Save current analysis as a phase and prepare for next."""
+        if self.df_all is None:
+            self.update_status("No data to save!")
+            return
+        
+        phase_num = self.session.next_phase_number
+        analysis = PhaseAnalysis.from_dataframe(
+            phase_num=phase_num,
+            df=self.df_all,
+            log_files=self.datalogs,
+            log_type=self.log_type
+        )
+        
+        self.session.add_phase(analysis)
+        
+        # Show comparison if this is Phase 2+
+        if phase_num > 1:
+            self._show_phase_comparison(phase_num - 1, phase_num)
+            self.update_status(f"✓ Phase {phase_num} saved | Load logs for Phase {phase_num + 1}")
+        else:
+            self.update_status(f"✓ Phase {phase_num} saved | Load logs for Phase {phase_num + 1}")
+        
+        # Clear for next phase
+        self.datalogs = []
+        self.datalog_dfs = {}
+        self.df_all = None
+        self.df_wot = None
+        self.log_type = "Unknown"
+        self.active_view = None
+        self.phase_committed = False
+        
+        # Update UI
+        container = self.query_one("#loaded-files-container", Vertical)
+        container.remove_children()
+        self.query_one("#log-type-label", Static).update("")
+        self.query_one("#file-info", Static).update("")
+        self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
+        
+        # Clear action items
+        actions_table = self.query_one("#actions-panel", ActionItemsPanel).query_one("#actions-table", DataTable)
+        actions_table.clear(columns=True)
+        
+        # Disable buttons until new data loaded
+        self.query_one("#add-datalog-btn", Button).disabled = True
+        self.query_one("#generate-btn", Button).disabled = True
+        self.query_one("#export-btn", Button).disabled = True
+        
+        self._update_phase_display()
+    
+    def _show_phase_selector(self):
+        """Show popup to select a previous phase."""
+        if not self.session.phases:
+            self.update_status("No saved phases yet")
+            return
+        
+        self.push_screen(PhaseSelectScreen(self.session.phases, self._on_phase_selected))
+    
+    def _on_phase_selected(self, phase_num: int):
+        """Handle phase selection from popup."""
+        if phase_num:
+            phase = self.session.get_phase(phase_num)
+            if phase:
+                self.session.set_active_phase(phase_num)
+                self._update_phase_display()
+                self.update_status(f"Viewing Phase {phase_num} ({phase.samples} samples)")
+    
+    def _start_next_phase(self):
+        """Start collecting data for the next phase."""
+        if not self.phase_committed:
+            self.update_status("Commit current phase first!")
+            return
+        
+        # Clear current data for new phase
+        self.datalogs = []
+        self.datalog_dfs = {}
+        self.df_all = None
+        self.df_wot = None
+        self.log_type = "Unknown"
+        self.active_view = None
+        self.phase_committed = False
+        
+        # Update UI
+        container = self.query_one("#loaded-files-container", Vertical)
+        container.remove_children()
+        self.query_one("#log-type-label", Static).update("")
+        self.query_one("#file-info", Static).update("")
+        self.query_one("#summary-panel", SummaryPanel).query_one("#summary-content", Static).update("Load a datalog to see analysis")
+        
+        # Clear action items
+        actions_table = self.query_one("#actions-panel", ActionItemsPanel).query_one("#actions-table", DataTable)
+        actions_table.clear(columns=True)
+        
+        # Disable buttons until new data loaded
+        self.query_one("#add-datalog-btn", Button).disabled = True
+        self.query_one("#generate-btn", Button).disabled = True
+        self.query_one("#export-btn", Button).disabled = True
+        
+        self._update_phase_display()
+        self.update_status(f"Ready for Phase {self.session.next_phase_number} - load new logs")
+    
+    def _show_phase_comparison(self, phase1_num: int, phase2_num: int):
+        """Show comparison between two phases in the action items."""
+        comparison = self.session.compare_phases(phase1_num, phase2_num)
+        if not comparison:
+            return
+        
+        # Build comparison summary for status
+        improvements = []
+        regressions = []
+        
+        for key, data in comparison.items():
+            if isinstance(data, dict) and "status" in data:
+                if data["status"] == "improved":
+                    improvements.append(key)
+                elif data["status"] == "worse":
+                    regressions.append(key)
+        
+        if improvements and not regressions:
+            self.update_status(f"✅ Phase {phase2_num}: All metrics improved!")
+        elif regressions:
+            self.update_status(f"⚠️ Phase {phase2_num}: {len(regressions)} metric(s) need attention")
+        else:
+            self.update_status(f"Phase {phase2_num} committed - no significant changes")
+    
+    def action_save_session(self):
+        """Save the current session to a file."""
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+        default_name = f"tuning_session_{timestamp}.json"
+        
+        def handle_save(result):
+            if result:
+                try:
+                    self.session.save(Path(result))
+                    self.update_status(f"✓ Session saved to {result}")
+                except Exception as e:
+                    self.update_status(f"Error saving: {e}")
+        
+        self.push_screen(
+            SaveFileScreen(
+                default_name=default_name,
+                title="Save Session",
+                start_path=str(Path.home() / "Documents")
+            ),
+            handle_save
+        )
+    
+    def action_load_session(self):
+        """Load a session from a file."""
+        def handle_load(result):
+            if result:
+                try:
+                    self.session = TuningSession.load(Path(result))
+                    self._update_phase_display()
+                    
+                    # If session has phases, show the active one
+                    if self.session.phases:
+                        active = self.session.get_active_phase()
+                        if active:
+                            self.update_status(f"✓ Loaded session with {len(self.session.phases)} phase(s)")
+                    else:
+                        self.update_status("✓ Session loaded (no phases yet)")
+                except Exception as e:
+                    self.update_status(f"Error loading: {e}")
+        
+        self.push_screen(
+            FilePickerScreen(
+                start_path=str(Path.home() / "Documents"),
+                extensions=[".json"]
+            ),
+            handle_load
+        )
+    
+    def action_quit(self) -> None:
+        """Handle quit with save prompt if unsaved."""
+        if self.session.is_dirty:
+            self.push_screen(ConfirmScreen(
+                "You have unsaved changes. Save before exiting?",
+                on_yes=self._save_and_quit,
+                on_no=self.exit,
+                on_cancel=lambda: None
+            ))
+        else:
+            self.exit()
+    
+    def _save_and_quit(self):
+        """Save session then quit."""
+        def after_save(result):
+            if result:
+                try:
+                    self.session.save(Path(result))
+                except Exception:
+                    pass
+            self.exit()
+        
+        from datetime import datetime
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M')
+        default_name = f"tuning_session_{timestamp}.json"
+        
+        self.push_screen(
+            SaveFileScreen(
+                default_name=default_name,
+                title="Save Session Before Exit",
+                start_path=str(Path.home() / "Documents")
+            ),
+            after_save
+        )
+
+
+class ConfirmScreen(ModalScreen):
+    """Confirmation dialog screen."""
+    
+    def __init__(self, message: str, on_yes: callable, on_no: callable, on_cancel: callable = None):
+        super().__init__()
+        self.message = message
+        self.on_yes = on_yes
+        self.on_no = on_no
+        self.on_cancel = on_cancel or (lambda: None)
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="confirm-container"):
+            yield Static(self.message, id="confirm-message")
+            with Horizontal(id="confirm-buttons"):
+                yield Button("Save", id="yes-btn", variant="success")
+                yield Button("Don't Save", id="no-btn", variant="error")
+                yield Button("Cancel", id="cancel-btn", variant="default")
+    
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "yes-btn":
+            self.dismiss(None)
+            self.on_yes()
+        elif event.button.id == "no-btn":
+            self.dismiss(None)
+            self.on_no()
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
+            self.on_cancel()
 
 
 def main():
