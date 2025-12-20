@@ -37,16 +37,33 @@ This repository contains:
 Launch the interactive terminal interface for a visual analysis experience:
 
 ```bash
-./bin/damgood
-# Or directly:
-python scripts/tui.py
+./bin/damgood          # Terminal
+./bin/damgood-web      # Web browser (http://localhost:8000)
 ```
 
-Features:
+**Features:**
 - **Tabbed interface** — Summary, Fuel Trims, Boost, Power Enrichment panels
-- **File picker** — Browse and load WOT/cruise datalogs
-- **Live DataTables** — Sortable, scrollable analysis tables
-- **One-click exports** — Generate reports and revised tables
+- **Auto-detection** — Automatically identifies WOT vs Cruise vs Mixed logs
+- **Clickable file management** — Add/remove datalogs, hover to see remove option
+- **Save dialogs** — Browse and choose where to export files
+- **AI Chat** — Built-in AI assistant for detailed analysis (press `A`)
+- **Web accessible** — Run in browser via textual-serve
+
+**Keyboard Shortcuts:**
+| Key | Action |
+|-----|--------|
+| `L` | Load datalog |
+| `A` | AI Chat (requires API key) |
+| `G` | Generate revised tables |
+| `R` | Refresh analysis |
+| `X` | Reset to default state |
+| `Q` | Quit |
+
+**AI Chat Setup:**
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."  # or
+export OPENAI_API_KEY="sk-..."
+```
 
 ![TUI Screenshot](docs/tui-screenshot.png)
 
@@ -93,7 +110,15 @@ python scripts/analyze_datalog.py --wot datalogs/wot.csv --cruise datalogs/cruis
 python scripts/analyze_datalog.py datalog.csv
 ```
 
-**Requirements:** Python 3.11+, pandas (`pip install pandas`)
+**Requirements:** Python 3.9+, pandas, textual
+
+```bash
+pip install pandas textual rich pyyaml
+# Optional: for web server
+pip install textual-serve
+# Optional: for AI chat
+pip install anthropic  # or openai
+```
 
 ## New Project Setup Flow
 
