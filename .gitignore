@@ -21,9 +21,11 @@ __pycache__/
 datalogs/
 *.skill
 
-# Personal tuning data
-docs/tuning-history/analyses/
-docs/tuning-history/analysis-log.json
+# Personal tuning data (keep folder structure, ignore contents)
+tuning-history/analyses/*
+tuning-history/configurations/*
+tuning-history/*.json
+!tuning-history/README.md
 
 # Keep bin/ tracked for GitHub Action
 !bin/
