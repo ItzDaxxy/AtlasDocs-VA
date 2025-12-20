@@ -181,7 +181,7 @@ To finish documenting all 39 files:
 
 ## Tools Available
 
-- `/Users/contributor/Documents/atlas-docs/scripts/complete_avcs_docs.py` - Python script with documentation templates (ready for expansion)
+- `scripts/complete_avcs_docs.py` - Python script with documentation templates (ready for expansion)
 
 ## Notes
 

@@ -35,3 +35,6 @@ docs/tuning-history/analysis-log.json
 FA20-ANALYZER.md
 fa20_analyzer/
 requirements.txt
+# Personal datalogs (don't commit)
+samples/WOT.csv
+samples/cruise.csv
