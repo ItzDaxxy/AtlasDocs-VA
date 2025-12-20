@@ -186,6 +186,205 @@ def analyze_ignition_domain(df):
     
     return results
 
+def generate_histograms(df):
+    """Generate binned histogram tables for key parameters"""
+    histograms = {}
+    
+    # Find columns
+    maf_cols = [c for c in df.columns if 'Mass Air Flow' in c or 'MAF' in c]
+    stft_cols = [c for c in df.columns if 'STFT' in c or 'AF Correction' in c]
+    ltft_cols = [c for c in df.columns if 'Learn 1' in c or 'LTFT' in c]
+    rpm_cols = [c for c in df.columns if 'RPM' in c or 'Engine Speed' in c]
+    knock_cols = [c for c in df.columns if 'Feedback Knock' in c]
+    load_cols = [c for c in df.columns if 'Calculated Load' in c or 'Load Value' in c]
+    boost_target_cols = [c for c in df.columns if 'Boost Target' in c]
+    boost_actual_cols = [c for c in df.columns if 'Manifold Absolute Pressure' in c or 'Boost Pressure' in c]
+    timing_cols = [c for c in df.columns if 'Ignition Timing' in c]
+    
+    # 1. Fuel Trims by MAF
+    if maf_cols and (stft_cols or ltft_cols):
+        maf = df[maf_cols[0]]
+        stft = df[stft_cols[0]] if stft_cols else None
+        ltft = df[ltft_cols[0]] if ltft_cols else None
+        
+        maf_bins = [(0, 5, "0-5"), (5, 10, "5-10"), (10, 20, "10-20"), 
+                    (20, 40, "20-40"), (40, 80, "40-80"), (80, 200, "80+")]
+        
+        fuel_by_maf = []
+        for low, high, label in maf_bins:
+            mask = (maf >= low) & (maf < high)
+            count = mask.sum()
+            if count > 5:
+                row = {"maf_bin": label, "samples": int(count)}
+                if stft is not None:
+                    row["stft_mean"] = round(float(stft[mask].mean()), 2)
+                if ltft is not None:
+                    row["ltft_mean"] = round(float(ltft[mask].mean()), 2)
+                if stft is not None and ltft is not None:
+                    row["total"] = round(float(stft[mask].mean() + ltft[mask].mean()), 2)
+                fuel_by_maf.append(row)
+        
+        if fuel_by_maf:
+            histograms["fuel_trims_by_maf"] = fuel_by_maf
+    
+    # 2. Knock by RPM
+    if knock_cols and rpm_cols:
+        knock = df[knock_cols[0]]
+        rpm = df[rpm_cols[0]]
+        
+        rpm_bins = [(1000, 2000, "1-2k"), (2000, 3000, "2-3k"), (3000, 4000, "3-4k"),
+                    (4000, 5000, "4-5k"), (5000, 6000, "5-6k"), (6000, 8000, "6k+")]
+        
+        knock_by_rpm = []
+        for low, high, label in rpm_bins:
+            mask = (rpm >= low) & (rpm < high)
+            if mask.sum() > 5:
+                knock_events = (knock[mask] != 0).sum()
+                max_retard = float(knock[mask].min()) if knock_events > 0 else 0
+                knock_by_rpm.append({
+                    "rpm_bin": label,
+                    "samples": int(mask.sum()),
+                    "knock_events": int(knock_events),
+                    "max_retard": round(max_retard, 2)
+                })
+        
+        if knock_by_rpm:
+            histograms["knock_by_rpm"] = knock_by_rpm
+    
+    # 3. Knock by Load
+    if knock_cols and load_cols:
+        knock = df[knock_cols[0]]
+        load = df[load_cols[0]]
+        
+        load_bins = [(0, 0.5, "0-0.5"), (0.5, 1.0, "0.5-1.0"), (1.0, 1.5, "1.0-1.5"),
+                     (1.5, 2.0, "1.5-2.0"), (2.0, 3.0, "2.0+")]
+        
+        knock_by_load = []
+        for low, high, label in load_bins:
+            mask = (load >= low) & (load < high)
+            if mask.sum() > 5:
+                knock_events = (knock[mask] != 0).sum()
+                max_retard = float(knock[mask].min()) if knock_events > 0 else 0
+                knock_by_load.append({
+                    "load_bin": label,
+                    "samples": int(mask.sum()),
+                    "knock_events": int(knock_events),
+                    "max_retard": round(max_retard, 2)
+                })
+        
+        if knock_by_load:
+            histograms["knock_by_load"] = knock_by_load
+    
+    # 4. Boost Error by RPM
+    if boost_target_cols and boost_actual_cols and rpm_cols:
+        target = df[boost_target_cols[0]]
+        actual = df[boost_actual_cols[0]]
+        rpm = df[rpm_cols[0]]
+        
+        rpm_bins = [(2000, 3000, "2-3k"), (3000, 4000, "3-4k"), (4000, 5000, "4-5k"),
+                    (5000, 6000, "5-6k"), (6000, 8000, "6k+")]
+        
+        boost_by_rpm = []
+        for low, high, label in rpm_bins:
+            mask = (rpm >= low) & (rpm < high) & (target > 0)  # Only when boosting
+            if mask.sum() > 5:
+                error = actual[mask] - target[mask]
+                boost_by_rpm.append({
+                    "rpm_bin": label,
+                    "samples": int(mask.sum()),
+                    "avg_error": round(float(error.mean()), 2),
+                    "max_undershoot": round(float(error.min()), 2),
+                    "max_overshoot": round(float(error.max()), 2)
+                })
+        
+        if boost_by_rpm:
+            histograms["boost_error_by_rpm"] = boost_by_rpm
+    
+    # 5. Timing by Load
+    if timing_cols and load_cols:
+        timing = df[timing_cols[0]]
+        load = df[load_cols[0]]
+        
+        load_bins = [(0, 0.5, "0-0.5"), (0.5, 1.0, "0.5-1.0"), (1.0, 1.5, "1.0-1.5"),
+                     (1.5, 2.0, "1.5-2.0"), (2.0, 3.0, "2.0+")]
+        
+        timing_by_load = []
+        for low, high, label in load_bins:
+            mask = (load >= low) & (load < high)
+            if mask.sum() > 5:
+                timing_by_load.append({
+                    "load_bin": label,
+                    "samples": int(mask.sum()),
+                    "timing_mean": round(float(timing[mask].mean()), 1),
+                    "timing_min": round(float(timing[mask].min()), 1),
+                    "timing_max": round(float(timing[mask].max()), 1)
+                })
+        
+        if timing_by_load:
+            histograms["timing_by_load"] = timing_by_load
+    
+    return histograms
+
+def print_histograms(histograms):
+    """Print histogram tables to console"""
+    
+    if "fuel_trims_by_maf" in histograms:
+        print_section("FUEL TRIMS BY MAF")
+        print(f"{'MAF (g/s)':<10} {'Samples':>8} {'STFT':>8} {'LTFT':>8} {'Total':>8}")
+        print("-" * 44)
+        for row in histograms["fuel_trims_by_maf"]:
+            stft = f"{row.get('stft_mean', 0):+.1f}%" if 'stft_mean' in row else "N/A"
+            ltft = f"{row.get('ltft_mean', 0):+.1f}%" if 'ltft_mean' in row else "N/A"
+            total = f"{row.get('total', 0):+.1f}%" if 'total' in row else "N/A"
+            
+            # Color code total
+            total_val = row.get('total', 0)
+            if abs(total_val) < 3:
+                color = Colors.GREEN
+            elif abs(total_val) < 8:
+                color = Colors.YELLOW
+            else:
+                color = Colors.RED
+            
+            print(f"{row['maf_bin']:<10} {row['samples']:>8} {stft:>8} {ltft:>8} {color}{total:>8}{Colors.END}")
+    
+    if "knock_by_rpm" in histograms:
+        print_section("KNOCK BY RPM")
+        print(f"{'RPM':<8} {'Samples':>8} {'Events':>8} {'Max Retard':>12}")
+        print("-" * 38)
+        for row in histograms["knock_by_rpm"]:
+            events = row['knock_events']
+            color = Colors.GREEN if events == 0 else Colors.YELLOW if events < 20 else Colors.RED
+            retard = f"{row['max_retard']:.1f}°" if events > 0 else "-"
+            print(f"{row['rpm_bin']:<8} {row['samples']:>8} {color}{events:>8}{Colors.END} {retard:>12}")
+    
+    if "knock_by_load" in histograms:
+        print_section("KNOCK BY LOAD")
+        print(f"{'Load (g/rev)':<12} {'Samples':>8} {'Events':>8} {'Max Retard':>12}")
+        print("-" * 42)
+        for row in histograms["knock_by_load"]:
+            events = row['knock_events']
+            color = Colors.GREEN if events == 0 else Colors.YELLOW if events < 20 else Colors.RED
+            retard = f"{row['max_retard']:.1f}°" if events > 0 else "-"
+            print(f"{row['load_bin']:<12} {row['samples']:>8} {color}{events:>8}{Colors.END} {retard:>12}")
+    
+    if "boost_error_by_rpm" in histograms:
+        print_section("BOOST ERROR BY RPM")
+        print(f"{'RPM':<8} {'Samples':>8} {'Avg Err':>10} {'Undershoot':>12} {'Overshoot':>10}")
+        print("-" * 50)
+        for row in histograms["boost_error_by_rpm"]:
+            err = row['avg_error']
+            color = Colors.GREEN if abs(err) < 1 else Colors.YELLOW if abs(err) < 2 else Colors.RED
+            print(f"{row['rpm_bin']:<8} {row['samples']:>8} {color}{err:>+9.1f}{Colors.END} {row['max_undershoot']:>+11.1f} {row['max_overshoot']:>+9.1f}")
+    
+    if "timing_by_load" in histograms:
+        print_section("TIMING BY LOAD")
+        print(f"{'Load (g/rev)':<12} {'Samples':>8} {'Mean':>8} {'Min':>8} {'Max':>8}")
+        print("-" * 46)
+        for row in histograms["timing_by_load"]:
+            print(f"{row['load_bin']:<12} {row['samples']:>8} {row['timing_mean']:>7.1f}° {row['timing_min']:>7.1f}° {row['timing_max']:>7.1f}°")
+
+
 def analyze_engine_domain(df):
     """Analyze temps, idle, sensors"""
     results = {"issues": [], "summary": {}}
@@ -317,6 +516,7 @@ def analyze_file(filepath):
     fuel = analyze_fuel_domain(df)
     ignition = analyze_ignition_domain(df)
     engine = analyze_engine_domain(df)
+    histograms = generate_histograms(df)
     recommendations = generate_recommendations(fuel, ignition, engine)
     
     # Collect all issues
@@ -393,6 +593,10 @@ def analyze_file(filepath):
             if "table" in rec:
                 print(f"   {Colors.CYAN}Table: {rec['table']}{Colors.END}")
     
+    # Print histogram tables
+    if histograms:
+        print_histograms(histograms)
+    
     # Build report
     report = {
         "metadata": {
@@ -402,6 +606,7 @@ def analyze_file(filepath):
         },
         "issues": all_issues,
         "domains": {"fuel": fuel, "ignition": ignition, "engine": engine},
+        "histograms": histograms,
         "recommendations": recommendations
     }
     
