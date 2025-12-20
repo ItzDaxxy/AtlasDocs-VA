@@ -242,26 +242,30 @@ class FilePickerScreen(ModalScreen):
     
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "select", "Select"),
     ]
     
-    def __init__(self, start_path: str = ".", file_type: str = "wot"):
+    def __init__(self, start_path: str = "."):
         super().__init__()
         self.start_path = Path(start_path).expanduser()
-        self.file_type = file_type
         self.selected_file = None
     
     def compose(self) -> ComposeResult:
         with Container(id="file-picker-container"):
-            yield Static(f"Select {self.file_type.upper()} Datalog", id="picker-title")
+            yield Static("Select Datalog CSV", id="picker-title")
+            yield Static("", id="selected-file-label")
             yield DirectoryTree(str(self.start_path), id="file-tree")
             with Horizontal(id="picker-buttons"):
-                yield Button("Select", id="select-btn", variant="primary")
+                yield Button("Open", id="select-btn", variant="primary")
                 yield Button("Cancel", id="cancel-btn", variant="default")
     
     def on_directory_tree_file_selected(self, event: DirectoryTree.FileSelected):
-        """Handle file selection."""
+        """Handle file selection (double-click or enter on file)."""
         if str(event.path).endswith('.csv'):
             self.selected_file = event.path
+            self.query_one("#selected-file-label", Static).update(f"Selected: {event.path.name}")
+            # Auto-dismiss on double-click/enter
+            self.dismiss(self.selected_file)
     
     def on_button_pressed(self, event: Button.Pressed):
         if event.button.id == "select-btn" and self.selected_file:
@@ -271,6 +275,10 @@ class FilePickerScreen(ModalScreen):
     
     def action_cancel(self):
         self.dismiss(None)
+    
+    def action_select(self):
+        if self.selected_file:
+            self.dismiss(self.selected_file)
 
 
 class DAMGoodApp(App):
@@ -389,20 +397,18 @@ class DAMGoodApp(App):
     
     BINDINGS = [
         Binding("q", "quit", "Quit"),
-        Binding("w", "load_wot", "Load WOT"),
-        Binding("c", "load_cruise", "Load Cruise"),
+        Binding("l", "load_datalog", "Load Datalog"),
         Binding("g", "generate_tables", "Generate Tables"),
         Binding("r", "refresh", "Refresh"),
     ]
     
     def __init__(self):
         super().__init__()
-        self.df_wot = None
-        self.df_cruise = None
+        self.datalogs = []  # List of loaded datalog paths
         self.df_all = None
+        self.df_wot = None  # Auto-detected WOT portions
         self.config = load_config(None)
-        self.wot_path = None
-        self.cruise_path = None
+        self.log_type = "Unknown"  # Will be auto-detected
     
     def compose(self) -> ComposeResult:
         yield Header()
@@ -411,10 +417,10 @@ class DAMGoodApp(App):
             # Sidebar
             with Vertical(id="sidebar"):
                 yield Static("📁 Datalogs", classes="section-title")
-                yield Button("Load WOT", id="load-wot-btn", variant="success")
-                yield Button("Load Cruise", id="load-cruise-btn", variant="warning")
-                yield Static("", id="wot-file-label")
-                yield Static("", id="cruise-file-label")
+                yield Button("Load Datalog", id="load-datalog-btn", variant="success")
+                yield Button("Add Another", id="add-datalog-btn", variant="default")
+                yield Static("", id="loaded-files-label")
+                yield Static("", id="log-type-label")
                 yield Static("─" * 28)
                 yield Static("⚡ Actions", classes="section-title")
                 yield Button("Generate Tables", id="generate-btn", variant="primary")
@@ -467,63 +473,112 @@ class DAMGoodApp(App):
             parts.append(f"Samples: {len(self.df_all)}")
         info.update(" | ".join(parts) if parts else "No datalogs loaded")
     
-    def action_load_wot(self):
-        """Load WOT datalog file."""
-        start_path = self.wot_path.parent if self.wot_path else Path.home()
+    def action_load_datalog(self):
+        """Load a datalog file."""
+        start_path = self.datalogs[-1].parent if self.datalogs else Path.home()
         
-        def handle_wot_result(result):
+        def handle_result(result):
             if result:
-                self.wot_path = Path(result)
+                path = Path(result)
                 try:
-                    self.df_wot = load_datalog(str(self.wot_path))
-                    self.query_one("#wot-file-label", Static).update(f"✓ {self.wot_path.name}")
-                    self._merge_and_analyze()
-                    self.update_status(f"Loaded WOT: {len(self.df_wot)} samples")
+                    df = load_datalog(str(path))
+                    self.datalogs = [path]  # Reset to single file
+                    self._process_datalog(df, path)
                 except Exception as e:
                     self.update_status(f"Error: {e}")
         
-        self.push_screen(FilePickerScreen(str(start_path), "wot"), handle_wot_result)
+        self.push_screen(FilePickerScreen(str(start_path)), handle_result)
     
-    def action_load_cruise(self):
-        """Load cruise datalog file."""
-        start_path = self.cruise_path.parent if self.cruise_path else Path.home()
+    def action_add_datalog(self):
+        """Add another datalog file to the analysis."""
+        start_path = self.datalogs[-1].parent if self.datalogs else Path.home()
         
-        def handle_cruise_result(result):
+        def handle_result(result):
             if result:
-                self.cruise_path = Path(result)
+                path = Path(result)
                 try:
-                    self.df_cruise = load_datalog(str(self.cruise_path))
-                    self.query_one("#cruise-file-label", Static).update(f"✓ {self.cruise_path.name}")
-                    self._merge_and_analyze()
-                    self.update_status(f"Loaded Cruise: {len(self.df_cruise)} samples")
+                    df = load_datalog(str(path))
+                    self.datalogs.append(path)
+                    # Merge with existing data
+                    if self.df_all is not None:
+                        combined = pd.concat([self.df_all, df], ignore_index=True)
+                        self._process_datalog(combined, path, append=True)
+                    else:
+                        self._process_datalog(df, path)
                 except Exception as e:
                     self.update_status(f"Error: {e}")
         
-        self.push_screen(FilePickerScreen(str(start_path), "cruise"), handle_cruise_result)
+        self.push_screen(FilePickerScreen(str(start_path)), handle_result)
     
-    def _merge_and_analyze(self):
-        """Merge datalogs and run analysis."""
-        if self.df_wot is not None:
-            if self.df_cruise is not None:
-                self.df_all = pd.concat([self.df_wot, self.df_cruise], ignore_index=True)
-            else:
-                self.df_all = self.df_wot
-            
-            # Update all panels
-            self.query_one("#summary-panel", SummaryPanel).update_data(self.df_all, self.config)
-            self.query_one("#fuel-panel", FuelTrimPanel).update_data(self.df_all)
-            self.query_one("#boost-panel", BoostPanel).update_data(self.df_wot)
-            self.query_one("#pe-panel", PowerEnrichmentPanel).update_data(self.df_wot)
-            self.query_one("#actions-panel", ActionItemsPanel).update_data(self.df_all, self.df_wot)
-            
-            self.update_file_info()
+    def _detect_log_type(self, df: pd.DataFrame) -> tuple:
+        """Auto-detect log type based on throttle and load data."""
+        throttle_col = 'Throttle - Requested Torque - Main Accelerator Position'
+        load_col = 'Engine - Calculated Load'
+        
+        if throttle_col not in df.columns or load_col not in df.columns:
+            return "Mixed", df, df
+        
+        # WOT: throttle > 80% and load > 0.8
+        wot_mask = (df[throttle_col] > 80) & (df[load_col] > 0.8)
+        cruise_mask = (df[throttle_col] < 50) & (df[load_col] < 0.5)
+        
+        wot_count = wot_mask.sum()
+        cruise_count = cruise_mask.sum()
+        total = len(df)
+        
+        wot_pct = (wot_count / total) * 100 if total > 0 else 0
+        cruise_pct = (cruise_count / total) * 100 if total > 0 else 0
+        
+        # Determine primary type
+        if wot_pct > 30:
+            log_type = f"WOT ({wot_pct:.0f}%)"
+        elif cruise_pct > 50:
+            log_type = f"Cruise ({cruise_pct:.0f}%)"
+        else:
+            log_type = f"Mixed (WOT:{wot_pct:.0f}% Cruise:{cruise_pct:.0f}%)"
+        
+        # Extract WOT portion for PE analysis
+        df_wot = df[wot_mask] if wot_count > 10 else df
+        
+        return log_type, df, df_wot
+    
+    def _process_datalog(self, df: pd.DataFrame, path: Path, append: bool = False):
+        """Process loaded datalog and update UI."""
+        # Auto-detect log type
+        self.log_type, self.df_all, self.df_wot = self._detect_log_type(df)
+        
+        # Update file labels
+        if append:
+            files_text = "\n".join([f"✓ {p.name}" for p in self.datalogs])
+        else:
+            files_text = f"✓ {path.name}"
+        self.query_one("#loaded-files-label", Static).update(files_text)
+        self.query_one("#log-type-label", Static).update(f"Type: {self.log_type}")
+        
+        # Run analysis
+        self._analyze()
+        self.update_status(f"Loaded: {len(self.df_all)} samples | {self.log_type}")
+    
+    def _analyze(self):
+        """Run analysis on loaded data and update all panels."""
+        if self.df_all is None:
+            return
+        
+        # Update all panels
+        self.query_one("#summary-panel", SummaryPanel).update_data(self.df_all, self.config)
+        self.query_one("#fuel-panel", FuelTrimPanel).update_data(self.df_all)
+        self.query_one("#boost-panel", BoostPanel).update_data(self.df_wot)
+        self.query_one("#pe-panel", PowerEnrichmentPanel).update_data(self.df_wot)
+        self.query_one("#actions-panel", ActionItemsPanel).update_data(self.df_all, self.df_wot)
+        
+        self.update_file_info()
     
     def on_button_pressed(self, event: Button.Pressed):
         """Handle button presses."""
-        if event.button.id == "load-wot-btn":
-            self.action_load_wot()
-        elif event.button.id == "load-cruise-btn":
-            self.action_load_cruise()
+        if event.button.id == "load-datalog-btn":
+            self.action_load_datalog()
+        elif event.button.id == "add-datalog-btn":
+            self.action_add_datalog()
         elif event.button.id == "generate-btn":
             self.action_generate_tables()
         elif event.button.id == "export-btn":
@@ -563,7 +618,7 @@ class DAMGoodApp(App):
     def action_refresh(self):
         """Refresh the analysis."""
         if self.df_all is not None:
-            self._merge_and_analyze()
+            self._analyze()
             self.update_status("Refreshed analysis")
 
 
