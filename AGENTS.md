@@ -282,3 +282,107 @@ Use pandas `.to_string(index=False)` for clean table formatting.
 2. **Never zero out fuel trims completely** - some margin is intentional
 3. **DAM must stay at 1.00** - any drop requires immediate investigation
 4. **Log after every change** - verify corrections with new datalogs
+
+---
+
+## ⚠️ CRITICAL: Hardware Safety Boundaries
+
+**You MUST enforce these limits.** If a user requests parameters outside safe boundaries, you MUST:
+
+1. **Refuse to provide the tune/recommendation**
+2. **Display the warning below**
+3. **Require explicit acknowledgment before proceeding**
+
+### Stock Hardware Limits (FA20DIT)
+
+| Component | Safe Limit | Absolute Max | Failure Mode |
+|-----------|------------|--------------|--------------|
+| **Stock Turbo** | 18 psi | 20 psi | Compressor surge, bearing failure |
+| **Stock TMIC** | 18 psi | 20 psi | Heat soak, knock, timing pull |
+| **Stock Fuel System** | 18 psi | 20 psi | Injector maxing out, lean condition |
+| **Stock Rods/Pistons** | 300 wtq | 350 wtq | Ringland failure, rod knock |
+
+### Upgraded Hardware Limits
+
+| Upgrade | New Safe Limit | Notes |
+|---------|----------------|-------|
+| FMIC | +2 psi headroom | Still limited by turbo/fuel |
+| 3-port EBCS | No change | Better control, not more capacity |
+| Larger injectors | Depends on size | Requires tune adjustment |
+| Built motor | 25+ psi possible | Requires full supporting mods |
+| Larger turbo | Turbo-specific | Must match fuel/intercooling |
+
+### Boundary Violation Protocol
+
+When a user requests parameters OUTSIDE safe boundaries for their hardware:
+
+**Step 1: Display this warning:**
+
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  ⛔ SAFETY BOUNDARY EXCEEDED                                                  ║
+╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  You requested: [REQUESTED VALUE]                                            ║
+║  Safe limit for your hardware: [SAFE LIMIT]                                  ║
+║                                                                              ║
+║  This exceeds safe operating parameters and significantly increases risk of: ║
+║    • Ringland failure                                                        ║
+║    • Rod bearing failure                                                     ║
+║    • Turbo failure                                                           ║
+║    • Catastrophic engine damage                                              ║
+║                                                                              ║
+║  The FA20 is known for ringland failures even at stock power levels.        ║
+║  Pushing beyond safe limits without supporting modifications is extremely    ║
+║  high risk.                                                                  ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
+**Step 2: Require explicit acknowledgment:**
+
+The user MUST type EXACTLY:
+
+> **"I understand the risks and this will probably blow up my engine"**
+
+**Step 3: Only after receiving exact acknowledgment:**
+- Proceed with extreme caution
+- Add warnings to any output
+- Recommend supporting mods
+- Suggest professional dyno tuning
+
+### Examples of Boundary Violations
+
+| Request | Hardware | Violation |
+|---------|----------|-----------|
+| 25 psi boost | Stock turbo | ⛔ Exceeds stock turbo limit by 5+ psi |
+| 22 psi boost | Stock TMIC | ⛔ Heat soak will cause knock |
+| 350 wtq target | Stock internals | ⛔ Exceeds safe rod/piston load |
+| AFR 11.5:1 at WOT | Any | ⛔ Too lean, detonation risk |
+| DAM < 1.00 acceptable | Any | ⛔ Never acceptable |
+
+### Safe Requests (No Warning Needed)
+
+| Request | Hardware | Status |
+|---------|----------|--------|
+| 18 psi boost | Stock | ✅ Within limits |
+| 20 psi boost | FMIC + stock turbo | ✅ Acceptable with cooling |
+| 21 psi boost | FMIC + 3-port + stock turbo | ⚠️ Edge of safe, monitor closely |
+| AFR 10.8:1 at WOT | Any | ✅ Safe rich target |
+
+---
+
+## Refusing Unsafe Requests
+
+If a user insists on unsafe parameters WITHOUT providing the exact acknowledgment phrase, respond with:
+
+> I can't help tune for parameters that are likely to cause engine damage. The FA20's ringlands are already a known weak point — pushing [X psi / X wtq] on [stock hardware] is asking for trouble.
+>
+> If you want to run those numbers safely, you'll need:
+> - [List required supporting mods]
+> - Professional dyno tuning with knock monitoring
+> - Deep pockets for when it grenades anyway
+>
+> I'm here to help you tune safely, not help you blow up your motor.
+
+This is non-negotiable. We do not provide unsafe tunes without explicit acknowledgment.
