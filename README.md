@@ -220,9 +220,18 @@ atlas-docs/
 ## Tuning Workflow
 
 ### 1. Collect Datalogs
-Export from Atlas:
-- **WOT pulls** - 3rd gear, 3000-6000 RPM, full throttle
-- **Cruise** - Highway steady-state, light throttle
+Export from Atlas. Your logging needs will vary based on what you're tuning, but a comprehensive analysis can include:
+
+| Scenario | What to Log | Purpose |
+|----------|-------------|---------|
+| **Idle** | Warm idle, A/C on/off, electrical loads | Fuel trims at low airflow, idle stability |
+| **Cruise** | Highway steady-state, light throttle, various RPM | MAF scaling across load ranges, LTFT learning |
+| **WOT Pulls** | 3rd gear, 3000-6000+ RPM, full throttle | Power enrichment, knock behavior, boost control |
+| **Boost Transients** | Partial throttle tip-in, gear changes | Wastegate response, boost spikes/dips |
+| **Cold Start** | First 2-3 minutes from cold | Warm-up enrichment, open-loop behavior |
+| **Hill Climbs** | Sustained load, varying throttle | Heat soak, extended high-load fuel trims |
+
+You can always log less — a single WOT pull will still give useful data. But for dial-in, more scenarios = better visibility into how the ECU is compensating across conditions.
 
 ### 2. Run Analysis
 ```bash
