@@ -345,37 +345,6 @@ Log again and verify:
 3. **DAM must stay at 1.00** - any drop requires immediate investigation
 4. **Log after every change** - verify corrections with new datalogs
 
-## GitHub Action
-
-### Quick Analysis (Upload via Issue)
-
-1. [Open a new issue](../../issues/new?title=Analyze%20my%20datalog&body=Drag%20and%20drop%20your%20CSV%20file%20here)
-2. Drag and drop your datalog CSV into the issue body
-3. Submit the issue
-4. Wait for the bot to post analysis results as a comment
-
-### Use in Your Own Workflows
-
-```yaml
-name: Analyze Datalog
-
-on:
-  push:
-    paths:
-      - 'datalogs/**/*.csv'
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Run FA20 Analysis
-        uses: ItzDaxxy/DAMGood@main
-        with:
-          datalog-path: 'datalogs/latest.csv'
-```
-
 ## Stock Calibration Baseline
 
 Default configuration is based on **stock FA20DIT calibration**:
