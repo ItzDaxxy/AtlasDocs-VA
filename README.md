@@ -104,16 +104,33 @@ Unlike static scripts, the AI can answer follow-up questions, explain its reason
 git clone https://github.com/ItzDaxxy/DAMGood.git
 cd DAMGood
 
-# Run the installer (creates venv, installs deps, adds 'damgood' command)
+# Run the installer
 ./install.sh
 ```
 
-After installation, run DAMGood from anywhere:
+The installer will:
+- Create a Python virtual environment
+- Install all dependencies (pandas, textual, rich, etc.)
+- Add the `damgood` command to your shell
+
+After installation, launch from anywhere:
 ```bash
-damgood
+damgood           # Terminal UI
+damgood --web     # Web browser (http://localhost:8000)
 ```
 
 **Requirements:** Python 3.9+
+
+### Manual Installation (if install.sh doesn't work)
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+pip install -r requirements.txt
+
+# Run directly
+python scripts/tui.py
+```
 
 ## Quick Start
 
@@ -259,7 +276,9 @@ atlas-docs/
 │   ├── throttle/          # Electronic throttle control
 │   └── transmission/      # Gearbox tables
 ├── scripts/
-│   ├── analyze_datalog.py # Main analysis script
+│   ├── analyze_datalog.py       # Main analysis script
+│   ├── tui.py                   # Terminal UI application
+│   ├── generate_boost_table.py  # Boost control table generator
 │   └── setup_tuning_project.sh  # Project initializer
 ├── samples/               # Example datalogs
 ├── output/                # Generated reports

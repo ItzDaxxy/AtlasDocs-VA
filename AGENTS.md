@@ -418,3 +418,379 @@ If a user insists on unsafe parameters WITHOUT providing the exact acknowledgmen
 > I'm here to help you tune safely, not help you blow up your motor.
 
 This is non-negotiable. We do not provide unsafe tunes without explicit acknowledgment.
+
+---
+
+## Atlas Table Generation
+
+When generating revised tables for Atlas import, you MUST output complete tables in Atlas CSV format - NOT summary recommendations. The user needs actual tables they can import directly.
+
+### Atlas CSV Format Specification
+
+All Atlas tables follow this structure:
+
+```csv
+"","X_VALUE_1","X_VALUE_2",...,"X_VALUE_N",
+"Y_VALUE_1","CELL_1_1","CELL_1_2",...,"CELL_1_N",
+"Y_VALUE_2","CELL_2_1","CELL_2_2",...,"CELL_2_N",
+...
+"",
+"Series","Name","Unit",
+"Table","TABLE_NAME","DATA_UNIT",
+"X Axis","X_AXIS_PARAM","X_UNIT",
+"Y Axis","Y_AXIS_PARAM","Y_UNIT",
+```
+
+**Key Rules:**
+- All values are quoted with double quotes
+- First cell of header row is empty ("")
+- First column of data rows contains Y-axis values
+- Empty row separates data from metadata
+- Metadata defines table name, units, and axis parameters
+
+### Table Types and Their Formats
+
+#### 1. Boost Target Main (3D: RPM × Torque → BAR)
+
+```
+X-Axis: Requested Torque (NM) - 0 to 420
+Y-Axis: RPM - 800 to 7600
+Values: BAR (gauge pressure)
+  - Negative = vacuum
+  - 0 = atmospheric  
+  - Positive = boost
+  - 1.0 bar ≈ 14.5 psi
+```
+
+**Reduction Formula:**
+```python
+PSI_TO_BAR = 0.0689476
+reduction_bar = target_reduction_psi * PSI_TO_BAR
+
+for each cell:
+    if value > 0:  # Only reduce positive boost
+        new_value = max(0, value - reduction_bar)
+    else:
+        new_value = value  # Keep vacuum values unchanged
+```
+
+#### 2. Wastegate Duty Maximum (3D: RPM × Torque → PERCENT)
+
+```
+X-Axis: Requested Torque (NM) - 200 to 400
+Y-Axis: RPM - 2000 to 8000
+Values: PERCENT (0-100)
+```
+
+**Reduction Formula for Overshoot Control:**
+```python
+# If boost overshoots, reduce WGDC Max to give PI controller more headroom
+# Typical reduction: 5-10% in high-boost cells
+
+for each cell where current_duty > 30:
+    new_duty = current_duty - reduction_percent
+```
+
+#### 3. Wastegate Duty Initial (3D: RPM × Torque → PERCENT)
+
+```
+X-Axis: Requested Torque (NM) - 200 to 400
+Y-Axis: RPM - 2000 to 8000
+Values: PERCENT (0-100)
+```
+
+**Relationship to Maximum:**
+- Initial should always be ≤ Maximum
+- If reducing Maximum, check Initial doesn't exceed new Maximum
+
+#### 4. Mass Airflow / MAF Scaling (2D: Voltage → g/s)
+
+```
+X-Axis: Air Flow Voltage (VOLTS) - 0 to 5.0
+Y-Axis: None (1D table displayed as 2D)
+Values: G_PER_SEC
+```
+
+**Scaling Formula:**
+```python
+# Positive combined trim = running rich = increase MAF values
+# Negative combined trim = running lean = decrease MAF values
+# BUT preserve 2-3% rich bias for safety
+
+for each voltage point:
+    combined_trim = stft + ltft  # from datalog at this airflow
+    
+    if combined_trim < -3:  # Too lean, dangerous
+        correction = combined_trim / 100  # Reduce MAF to add fuel
+    elif combined_trim > 0:  # Running rich, can lean out slightly
+        correction = min(combined_trim / 100, 0.03)  # Cap at 3%
+    else:  # -3% to 0% = ideal rich bias
+        correction = 0
+    
+    new_gs = original_gs * (1 + correction)
+```
+
+#### 5. Power Enrichment Target (3D: Load × RPM → AFR_EQ)
+
+⚠️ **CRITICAL: Atlas uses TWO DIFFERENT FORMATS for this table!**
+
+```
+X-Axis: RPM - 1750 to 5750
+Y-Axis: Calculated Load (G_PER_REV) - 0.1031 to 2.3719
+
+CSV EXPORT FORMAT: φ (Equivalence Ratio / AFR_EQ)
+  - φ = 1.0 = stoichiometric (14.7:1 AFR)
+  - φ > 1.0 = RICH (e.g., 1.32 = 11.1:1 AFR)
+  - φ < 1.0 = LEAN (dangerous under boost!)
+  - AFR = 14.7 / φ
+
+ATLAS DISPLAY FORMAT: λ (Lambda)
+  - λ = 1.0 = stoichiometric (14.7:1 AFR)
+  - λ < 1.0 = RICH (e.g., 0.75 = 11.0:1 AFR)
+  - λ > 1.0 = LEAN (dangerous under boost!)
+  - AFR = λ × 14.7
+
+CONVERSION: λ = 1/φ  OR  φ = 1/λ
+```
+
+**When IMPORTING CSV:** Use φ values (what the CSV contains)
+**When PASTING in Atlas:** Use λ values (what Atlas displays)
+
+**Enrichment Formula (φ format for CSV):**
+```python
+# Positive STFT at WOT = running lean = need MORE fuel = HIGHER φ
+
+for each high-load cell:
+    observed_stft = datalog_stft_at_this_rpm  # e.g., +10%
+    current_phi = table_value  # e.g., 1.32
+    
+    # Add the fuel the ECU is already adding via STFT
+    new_phi = current_phi * (1 + observed_stft / 100)
+    # 1.32 × 1.10 = 1.452 (richer target)
+    
+    # Safety cap: never exceed φ = 1.55 (~9.5:1 AFR)
+    new_phi = min(new_phi, 1.55)
+```
+
+**For PASTE (λ format):**
+```python
+# Convert φ to λ, then output for paste
+new_lambda = 1.0 / new_phi
+# λ = 1/1.452 = 0.689 (richer = lower lambda)
+
+# Safety floor: never go below λ = 0.65 (~9.5:1 AFR)
+new_lambda = max(new_lambda, 0.65)
+```
+
+**Common Values Reference:**
+| φ (CSV) | λ (Display) | AFR | Description |
+|---------|-------------|-----|-------------|
+| 1.00 | 1.00 | 14.7:1 | Stoichiometric |
+| 1.20 | 0.83 | 12.3:1 | Slightly rich |
+| 1.32 | 0.76 | 11.1:1 | WOT rich (typical) |
+| 1.40 | 0.71 | 10.5:1 | Very rich (safe) |
+| 1.50 | 0.67 | 9.8:1 | Maximum rich |
+
+#### 6. Boost Limit Base (2D: RPM → BAR)
+
+```
+X-Axis: RPM - 800 to 8000
+Y-Axis: None (1D table)
+Values: BAR (maximum allowed boost at each RPM)
+```
+
+**Important:** This is the absolute ceiling. Boost Target Main should never exceed Boost Limit Base at any RPM.
+
+### Complete Table Generation Process
+
+When asked to generate revised tables:
+
+**Step 1: Load Original Tables**
+```python
+def load_atlas_table(filepath):
+    """Parse Atlas CSV into header, data rows, and metadata."""
+    with open(filepath, 'r') as f:
+        lines = f.readlines()
+    
+    data_lines = []
+    metadata_lines = []
+    
+    for i, line in enumerate(lines):
+        stripped = line.strip().strip('"').strip(',')
+        if stripped == '' or stripped.startswith('Series'):
+            metadata_lines = lines[i:]
+            break
+        data_lines.append(line)
+    
+    # Parse header (X-axis values)
+    header = [p.strip('"') for p in data_lines[0].strip().split(',')]
+    
+    # Parse data rows (Y-value + cell values)
+    rows = []
+    for line in data_lines[1:]:
+        parts = line.strip().split(',')
+        row = [p.strip('"') for p in parts]
+        rows.append(row)
+    
+    return header, rows, metadata_lines
+```
+
+**Step 2: Apply Corrections Based on Datalog Analysis**
+```python
+def apply_boost_reduction(rows, reduction_psi):
+    """Reduce all positive boost values by specified PSI."""
+    reduction_bar = reduction_psi * 0.0689476
+    
+    revised_rows = []
+    for row in rows:
+        new_row = [row[0]]  # Keep Y-axis (RPM) value
+        for val in row[1:]:
+            if val:
+                try:
+                    v = float(val)
+                    if v > 0:
+                        v = max(0, v - reduction_bar)
+                    new_row.append(f"{v:.4f}")
+                except:
+                    new_row.append(val)
+            else:
+                new_row.append(val)
+        revised_rows.append(new_row)
+    
+    return revised_rows
+```
+
+**Step 3: Output Complete Atlas-Format CSV**
+```python
+def write_atlas_table(filepath, header, rows, table_name, unit, x_axis, x_unit, y_axis, y_unit):
+    """Write complete Atlas-format CSV."""
+    with open(filepath, 'w', newline='') as f:
+        writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+        
+        # Header row
+        writer.writerow(header)
+        
+        # Data rows
+        for row in rows:
+            writer.writerow(row)
+        
+        # Metadata
+        f.write('\n')
+        f.write('"Series","Name","Unit"\n')
+        f.write(f'"Table","{table_name}","{unit}"\n')
+        f.write(f'"X Axis","{x_axis}","{x_unit}"\n')
+        f.write(f'"Y Axis","{y_axis}","{y_unit}"\n')
+```
+
+**Step 4: Print Human-Readable Preview**
+```python
+def print_table_preview(header, rows, title):
+    """Print formatted table for user review."""
+    print(f"\n{title}")
+    print("=" * 120)
+    
+    # Print header
+    print(f"{'RPM':<10}", end='')
+    for h in header[1:]:
+        if h:
+            print(f"{float(h):>8.0f}", end='')
+    print()
+    print("-" * 120)
+    
+    # Print rows
+    for row in rows:
+        print(f"{float(row[0]):<10.0f}", end='')
+        for val in row[1:]:
+            if val:
+                print(f"{float(val):>8.4f}", end='')
+        print()
+```
+
+### Boost Overshoot Analysis
+
+When actual boost exceeds target:
+
+```
+Overshoot = Actual Boost - Target Boost
+
+If overshoot > 2 psi consistently:
+  1. Check Boost Limit Base - is it higher than intended max?
+  2. Check Wastegate Duty Maximum - may need reduction
+  3. Check PI Control gains - integral may be too aggressive
+  4. Reduce Boost Target Main as last resort
+
+Root Cause Analysis:
+- Overshoot at spool (low RPM): Wastegate Initial too high
+- Overshoot at peak (mid RPM): Wastegate Maximum too high OR PI integral issue
+- Overshoot everywhere: Boost Target Main set too high relative to hardware capability
+```
+
+### Coordinated Table Changes
+
+When reducing boost target, you may need to adjust multiple tables:
+
+```
+Target: Reduce actual boost from 23 psi to 21 psi
+
+1. Boost Target Main: 
+   - Current max: 1.17 bar (17 psi target)
+   - Actual: 23.6 psi (6.6 psi overshoot!)
+   - For 21 psi actual with same overshoot: need 14.4 psi target
+   - Reduction needed: 2.6 psi = 0.179 bar
+   
+2. Wastegate Duty Maximum:
+   - If still overshooting after target reduction, reduce by 5-10%
+   - Gives PI controller more room to correct
+   
+3. Boost Limit Base:
+   - Should be at least 0.1 bar above highest Boost Target Main value
+   - Acts as safety ceiling
+
+4. Verify after changes with new datalogs!
+```
+
+### Output File Naming Convention
+
+```
+REVISED - {Table Name} - {Description}.csv
+
+Examples:
+- REVISED - Boost Target Main - 21psi.csv
+- REVISED - Wastegate Duty Maximum - Reduced 10pct.csv
+- REVISED - Power Enrichment Target - Enriched High RPM.csv
+- REVISED - Sensors - Mass Airflow - Scaled.csv
+```
+
+### Required Outputs
+
+When generating tables, ALWAYS provide:
+
+1. **Complete CSV file** saved to the Export directory
+2. **Human-readable table preview** printed to console
+3. **Summary of changes** with before/after comparison
+4. **Validation notes** - what to verify in next datalog
+
+Example output format:
+```
+Saved: /path/to/REVISED - Boost Target Main - 21psi.csv
+
+REVISED BOOST TARGET MAIN TABLE (BAR) - 2.6 PSI REDUCTION
+============================================================
+
+RPM          0     140     160    180 ...
+------------------------------------------------------------
+800     -0.502  -0.082  -0.022  0.000 ...
+1200    -0.507  -0.101   0.000  0.000 ...
+...
+
+Original max: 1.1721 bar = 17.0 psi target
+Revised max:  0.9931 bar = 14.4 psi target
+Expected actual with current overshoot: ~21 psi
+
+NEXT STEPS:
+1. Import into Atlas
+2. Flash to ECU
+3. Perform WOT pull and log
+4. Verify actual boost is ~21 psi
+5. Check for knock activity (DAM, FBK, FKL)
+```

@@ -123,31 +123,102 @@ def load_datalog(filepath):
 
 
 def generate_executive_summary(df, config):
-    """Generate executive summary table using config thresholds."""
+    """Generate comprehensive executive summary table using config thresholds."""
     thresholds = config['thresholds']
     
-    dam_min = df['Ignition - Dynamic Advance Multiplier'].min()
-    fbk_min = df['Ignition - Feedback Knock'].min()
-    fkl_min = df['Ignition - Fine Knock Learn'].min()
-    ltft_mean = df['Fuel - Command - Corrections - AF Learn 1 (LTFT)'].mean()
+    # Core safety metrics
+    dam_col = 'Ignition - Dynamic Advance Multiplier'
+    fbk_col = 'Ignition - Feedback Knock'
+    fkl_col = 'Ignition - Fine Knock Learn'
+    stft_col = 'Fuel - Command - Corrections - AF Correction STFT'
+    ltft_col = 'Fuel - Command - Corrections - AF Learn 1 (LTFT)'
+    boost_col = 'Analytical - Boost Pressure'
+    afr_col = 'Sensors - AF Ratio 1'
+    maf_col = 'PIDs - (F410) Mass Air Flow'
     
-    dam_status = '✅ Perfect' if dam_min >= thresholds['dam_warning'] else \
-                 ('⚠️ Warning' if dam_min >= thresholds['dam_critical'] else '❌ Critical')
-    fbk_status = '✅ No knock' if fbk_min >= thresholds['fbk_warning'] else \
-                 ('⚠️ Minor' if fbk_min >= thresholds['fbk_critical'] else '❌ Knock')
-    fkl_status = '✅ Clean' if fkl_min >= thresholds['fkl_warning'] else \
-                 ('⚠️ Learning' if fkl_min >= thresholds['fkl_critical'] else '❌ Retard')
-    ltft_status = '✅ OK' if abs(ltft_mean) < thresholds['ltft_warning'] else \
-                  ('⚠️ High' if abs(ltft_mean) < thresholds['ltft_critical'] else '❌ Critical')
+    rows = []
     
-    summary = pd.DataFrame({
-        'Parameter': ['DAM', 'Feedback Knock', 'Fine Knock Learn', 'LTFT'],
-        'Value': [f'{dam_min:.2f}', f'{fbk_min:.2f}°', f'{fkl_min:.2f}°', f'{ltft_mean:+.2f}%'],
-        'Threshold': ['≥0.95', '0°', '0°', '±5%'],
-        'Status': [dam_status, fbk_status, fkl_status, ltft_status]
-    })
+    # DAM
+    if dam_col in df.columns:
+        dam_min = df[dam_col].min()
+        dam_avg = df[dam_col].mean()
+        dam_status = '✅ Perfect' if dam_min >= thresholds['dam_warning'] else \
+                     ('⚠️ Warning' if dam_min >= thresholds['dam_critical'] else '❌ Critical')
+        rows.append({'Parameter': 'DAM (min)', 'Value': f'{dam_min:.2f}', 'Threshold': '≥0.95', 'Status': dam_status})
+        rows.append({'Parameter': 'DAM (avg)', 'Value': f'{dam_avg:.3f}', 'Threshold': '1.00', 'Status': '✅' if dam_avg >= 0.99 else '⚠️'})
     
-    return summary
+    # Knock metrics
+    if fbk_col in df.columns:
+        fbk_min = df[fbk_col].min()
+        fbk_events = (df[fbk_col] < -1.0).sum()
+        fbk_status = '✅ No knock' if fbk_min >= thresholds['fbk_warning'] else \
+                     ('⚠️ Minor' if fbk_min >= thresholds['fbk_critical'] else '❌ Knock')
+        rows.append({'Parameter': 'Feedback Knock', 'Value': f'{fbk_min:.1f}°', 'Threshold': '0°', 'Status': fbk_status})
+        rows.append({'Parameter': 'Knock Events', 'Value': str(fbk_events), 'Threshold': '0', 'Status': '✅' if fbk_events == 0 else '❌'})
+    
+    if fkl_col in df.columns:
+        fkl_min = df[fkl_col].min()
+        fkl_status = '✅ Clean' if fkl_min >= thresholds['fkl_warning'] else \
+                     ('⚠️ Learning' if fkl_min >= thresholds['fkl_critical'] else '❌ Retard')
+        rows.append({'Parameter': 'Fine Knock Learn', 'Value': f'{fkl_min:.1f}°', 'Threshold': '0°', 'Status': fkl_status})
+    
+    # Fuel trims
+    if stft_col in df.columns:
+        stft_mean = df[stft_col].mean()
+        stft_min = df[stft_col].min()
+        stft_max = df[stft_col].max()
+        stft_status = '✅ OK' if abs(stft_mean) < thresholds['stft_warning'] else \
+                      ('⚠️ High' if abs(stft_mean) < thresholds['stft_critical'] else '❌ Critical')
+        rows.append({'Parameter': 'STFT (avg)', 'Value': f'{stft_mean:+.1f}%', 'Threshold': '±5%', 'Status': stft_status})
+        rows.append({'Parameter': 'STFT (range)', 'Value': f'{stft_min:+.1f} to {stft_max:+.1f}%', 'Threshold': '±10%', 'Status': '✅' if stft_max < 10 and stft_min > -10 else '⚠️'})
+    
+    if ltft_col in df.columns:
+        ltft_mean = df[ltft_col].mean()
+        ltft_status = '✅ OK' if abs(ltft_mean) < thresholds['ltft_warning'] else \
+                      ('⚠️ High' if abs(ltft_mean) < thresholds['ltft_critical'] else '❌ Critical')
+        rows.append({'Parameter': 'LTFT (avg)', 'Value': f'{ltft_mean:+.1f}%', 'Threshold': '±5%', 'Status': ltft_status})
+    
+    # Combined fuel trim
+    if stft_col in df.columns and ltft_col in df.columns:
+        combined = df[stft_col].mean() + df[ltft_col].mean()
+        combined_status = '✅ OK' if abs(combined) < 5 else ('⚠️ Check MAF' if abs(combined) < 8 else '❌ Fix')
+        rows.append({'Parameter': 'Combined Trim', 'Value': f'{combined:+.1f}%', 'Threshold': '±5%', 'Status': combined_status})
+    
+    # Boost metrics
+    if boost_col in df.columns:
+        boost_data = df[df[boost_col] > 0][boost_col]
+        if len(boost_data) > 0:
+            boost_max = boost_data.max()
+            boost_avg = boost_data.mean()
+            target = config.get('targets', {}).get('peak_boost_psi', 18)
+            overshoot = boost_max - target
+            boost_status = '✅ OK' if overshoot <= 1 else ('⚠️ Overshoot' if overshoot <= 2 else '❌ High')
+            rows.append({'Parameter': 'Peak Boost', 'Value': f'{boost_max:.1f} psi', 'Threshold': f'≤{target+1}', 'Status': boost_status})
+            rows.append({'Parameter': 'Avg Boost', 'Value': f'{boost_avg:.1f} psi', 'Threshold': '-', 'Status': '📊'})
+    
+    # AFR/Lambda (WOT)
+    if afr_col in df.columns:
+        # Filter for WOT conditions (high load)
+        load_col = 'Engine - Calculated Load'
+        if load_col in df.columns:
+            wot_mask = df[load_col] > 0.8
+            if wot_mask.sum() > 10:
+                wot_afr = df.loc[wot_mask, afr_col].mean()
+                afr_actual = wot_afr * 14.7
+                afr_status = '✅ Rich' if afr_actual < 11.0 else ('⚠️ Monitor' if afr_actual < 11.5 else '❌ Lean')
+                rows.append({'Parameter': 'WOT AFR', 'Value': f'{afr_actual:.1f}:1', 'Threshold': '≤11.0', 'Status': afr_status})
+                rows.append({'Parameter': 'WOT Lambda', 'Value': f'{wot_afr:.3f}', 'Threshold': '≤0.75', 'Status': '✅' if wot_afr <= 0.75 else '⚠️'})
+    
+    # MAF range
+    if maf_col in df.columns:
+        maf_max = df[maf_col].max()
+        maf_avg = df[maf_col].mean()
+        rows.append({'Parameter': 'MAF Max', 'Value': f'{maf_max:.0f} g/s', 'Threshold': '-', 'Status': '📊'})
+    
+    # Sample info
+    rows.append({'Parameter': 'Total Samples', 'Value': str(len(df)), 'Threshold': '-', 'Status': '📊'})
+    
+    return pd.DataFrame(rows)
 
 
 def generate_stft_histogram(df):

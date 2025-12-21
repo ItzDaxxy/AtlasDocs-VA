@@ -51,15 +51,17 @@ class TestExecutiveSummary:
     def test_healthy_datalog_shows_green_status(self, healthy_datalog, default_config):
         summary = generate_executive_summary(healthy_datalog, default_config)
         
-        assert len(summary) == 4
-        assert 'DAM' in summary['Parameter'].values
-        assert '✅' in summary[summary['Parameter'] == 'DAM']['Status'].values[0]
+        # Should have multiple rows now (comprehensive summary)
+        assert len(summary) >= 10
+        assert 'DAM (min)' in summary['Parameter'].values
+        dam_row = summary[summary['Parameter'] == 'DAM (min)']
+        assert '✅' in dam_row['Status'].values[0]
     
     def test_problematic_datalog_shows_warnings(self, problematic_datalog, default_config):
         summary = generate_executive_summary(problematic_datalog, default_config)
         
         # DAM dropped to 0.85, should be yellow/warning
-        dam_row = summary[summary['Parameter'] == 'DAM']
+        dam_row = summary[summary['Parameter'] == 'DAM (min)']
         assert '⚠️' in dam_row['Status'].values[0] or '❌' in dam_row['Status'].values[0]
         
         # Feedback knock is -4.5, should be red/critical
@@ -70,10 +72,12 @@ class TestExecutiveSummary:
         summary = generate_executive_summary(sample_datalog, default_config)
         
         params = summary['Parameter'].tolist()
-        assert 'DAM' in params
+        assert 'DAM (min)' in params
         assert 'Feedback Knock' in params
         assert 'Fine Knock Learn' in params
-        assert 'LTFT' in params
+        assert 'LTFT (avg)' in params
+        assert 'STFT (avg)' in params
+        assert 'Combined Trim' in params
 
 
 class TestSTFTHistogram:
@@ -225,7 +229,8 @@ class TestThresholdLogic:
         })
         
         summary = generate_executive_summary(df, default_config)
-        dam_status = summary[summary['Parameter'] == 'DAM']['Status'].values[0]
+        # Parameter is now 'DAM (min)' not 'DAM'
+        dam_status = summary[summary['Parameter'] == 'DAM (min)']['Status'].values[0]
         
         # DAM at 0.88 should be below 0.95 warning threshold
         assert '⚠️' in dam_status or '❌' in dam_status
@@ -241,7 +246,8 @@ class TestThresholdLogic:
         })
         
         summary = generate_executive_summary(df, default_config)
-        dam_status = summary[summary['Parameter'] == 'DAM']['Status'].values[0]
+        # Parameter is now 'DAM (min)' not 'DAM'
+        dam_status = summary[summary['Parameter'] == 'DAM (min)']['Status'].values[0]
         
         # DAM at 0.60 should be below 0.75 critical threshold
         assert '❌' in dam_status

@@ -35,6 +35,20 @@ from analyze_datalog import (
     generate_boost_analysis, generate_pe_analysis,
     generate_action_items, DEFAULT_CONFIG
 )
+
+import logging
+from textual.logging import TextualHandler
+
+# Set up debug logging to BOTH file and Textual console
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('/tmp/damgood_debug.log', mode='w'),
+        TextualHandler(),  # This sends logs to `textual console`
+    ]
+)
+logger = logging.getLogger('DAMGood')
 from api_keys import get_api_key, save_api_key, detect_provider_from_key, is_keyring_available
 from session import TuningSession, PhaseAnalysis
 
@@ -95,11 +109,9 @@ class LoadedFileLabel(Static):
     }
     """
     
-    def __init__(self, filepath: Path, on_select: callable, on_remove: callable, is_active: bool = False, **kwargs):
+    def __init__(self, filepath: Path, is_active: bool = False, **kwargs):
         super().__init__(**kwargs)
-        self.filepath = filepath
-        self.on_select = on_select
-        self.on_remove = on_remove
+        self.filepath = Path(filepath)  # Ensure it's a Path
         self.is_active = is_active
         self._render_label()
     
@@ -121,11 +133,13 @@ class LoadedFileLabel(Static):
         self._render_label()
     
     def on_click(self, event) -> None:
-        """Handle click - select file, or remove if shift-click."""
+        """Handle click on this label."""
+        # Let the app handle this - post to parent
         if event.shift:
-            self.on_remove(self.filepath)
+            self.app._remove_datalog(self.filepath)
         else:
-            self.on_select(self.filepath)
+            self.app._select_view(self.filepath)
+        event.stop()
 
 
 class AllCombinedLabel(Static):
@@ -191,7 +205,7 @@ class StatusIndicator(Static):
 
 
 class SummaryPanel(Static):
-    """Executive summary panel showing key health metrics."""
+    """Executive summary panel showing key health metrics in organized sections."""
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -200,34 +214,109 @@ class SummaryPanel(Static):
     def compose(self) -> ComposeResult:
         yield Static("Load a datalog to see analysis", id="summary-content")
     
-    def update_data(self, df: pd.DataFrame, config: dict):
-        """Update the summary with new datalog data."""
-        self.data = generate_executive_summary(df, config)
-        content = self.query_one("#summary-content", Static)
-        
-        # Build rich display with controlled column widths
-        table = Table(title="Executive Summary", expand=False, box=None, padding=(0, 1))
-        table.add_column("Parameter", style="cyan", width=18)
-        table.add_column("Value", justify="right", width=10)
-        table.add_column("Thresh", justify="center", width=8)
+    def _get_status_style(self, status: str) -> str:
+        """Get the style for a status value."""
+        if '✅' in status:
+            return "green"
+        elif '⚠️' in status:
+            return "yellow"
+        elif '📊' in status:
+            return "dim cyan"
+        else:
+            return "red"
+    
+    def _create_section_table(self, title: str, rows: list, show_header: bool = True) -> Table:
+        """Create a formatted section table."""
+        from rich.box import SIMPLE
+        table = Table(
+            title=f"[bold cyan]{title}[/]" if title else None,
+            expand=True,
+            box=SIMPLE,
+            padding=(0, 1),
+            show_header=show_header,
+            header_style="bold dim"
+        )
+        table.add_column("Parameter", style="white", width=18)
+        table.add_column("Value", justify="right", style="bright_white", width=16)
+        table.add_column("Thresh", justify="center", style="dim", width=8)
         table.add_column("Status", justify="left", width=14)
         
-        for _, row in self.data.iterrows():
-            status = row['Status']
-            if '✅' in status:
-                style = "green"
-            elif '⚠️' in status:
-                style = "yellow"
-            else:
-                style = "red"
+        for row in rows:
+            status = str(row['Status'])
+            style = self._get_status_style(status)
             table.add_row(
-                row['Parameter'],
+                str(row['Parameter']),
                 str(row['Value']),
-                row['Threshold'],
+                str(row['Threshold']),
                 Text(status, style=style)
             )
+        return table
+    
+    def update_data(self, df: pd.DataFrame, config: dict):
+        """Update the summary with new datalog data organized by section."""
+        from rich.console import Group
+        from rich.rule import Rule
         
-        content.update(table)
+        logger.info(f"SummaryPanel.update_data called with df of {len(df)} rows")
+        
+        self.data = generate_executive_summary(df, config)
+        logger.info(f"SummaryPanel: Generated {len(self.data)} summary rows")
+        
+        content = self.query_one("#summary-content", Static)
+        logger.info(f"SummaryPanel: Found content widget: {content}")
+        
+        # Categorize rows by section
+        safety_params = ['DAM (min)', 'DAM (avg)', 'Feedback Knock', 'Knock Events', 'Fine Knock Learn']
+        fuel_params = ['STFT (avg)', 'STFT (range)', 'LTFT (avg)', 'Combined Trim']
+        boost_params = ['Peak Boost', 'Avg Boost']
+        afr_params = ['WOT AFR', 'WOT Lambda']
+        info_params = ['MAF Max', 'Total Samples']
+        
+        safety_rows = []
+        fuel_rows = []
+        boost_rows = []
+        afr_rows = []
+        info_rows = []
+        
+        for _, row in self.data.iterrows():
+            param = row['Parameter']
+            row_dict = row.to_dict()
+            if param in safety_params:
+                safety_rows.append(row_dict)
+            elif param in fuel_params:
+                fuel_rows.append(row_dict)
+            elif param in boost_params:
+                boost_rows.append(row_dict)
+            elif param in afr_params:
+                afr_rows.append(row_dict)
+            elif param in info_params:
+                info_rows.append(row_dict)
+        
+        # Build grouped display with sections
+        sections = []
+        
+        if safety_rows:
+            sections.append(self._create_section_table("🔒 IGNITION / KNOCK", safety_rows))
+        
+        if fuel_rows:
+            sections.append(self._create_section_table("⛽ FUEL TRIMS", fuel_rows, show_header=False))
+        
+        if boost_rows:
+            sections.append(self._create_section_table("💨 BOOST", boost_rows, show_header=False))
+        
+        if afr_rows:
+            sections.append(self._create_section_table("🔥 WOT FUELING", afr_rows, show_header=False))
+        
+        if info_rows:
+            sections.append(self._create_section_table("📊 INFO", info_rows, show_header=False))
+        
+        # Combine all sections and force refresh
+        logger.info(f"SummaryPanel: Built {len(sections)} sections, calling update()")
+        content.update(Group(*sections))
+        logger.info("SummaryPanel: Called content.update(), now calling refresh()")
+        content.refresh()
+        self.refresh()
+        logger.info("SummaryPanel: update_data complete")
 
 
 class FuelTrimPanel(Static):
@@ -240,36 +329,55 @@ class FuelTrimPanel(Static):
             yield Static("Fuel Trim by MAF Range", classes="section-title")
             yield DataTable(id="maf-table", zebra_stripes=True)
     
+    def _repopulate_table(self, table: DataTable, columns: list, rows: list, table_name: str = ""):
+        """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
+        logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): clearing, cols={columns}, rows={len(rows)}")
+        table.clear(columns=True)
+        if columns:
+            table.add_columns(*columns)
+            logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): added {len(columns)} columns")
+        for row in rows:
+            table.add_row(*row)
+        logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): added {len(rows)} rows, calling refresh")
+        table.refresh(layout=True)
+        logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): refresh complete")
+    
     def update_data(self, df: pd.DataFrame):
         """Update fuel trim tables with datalog data."""
+        logger.info(f"FuelTrimPanel.update_data called with df of {len(df)} rows")
+        
         # STFT Histogram
         stft_data = generate_stft_histogram(df)
-        stft_table = self.query_one("#stft-table", DataTable)
-        stft_table.clear(columns=True)
-        stft_table.add_columns("Range", "Count", "Pct", "Distribution")
-        for _, row in stft_data.iterrows():
-            stft_table.add_row(
-                row['Range'],
-                str(row['Count']),
-                f"{row['Pct']}%",
-                row['Histogram']
-            )
+        stft_rows = [
+            (row['Range'], str(row['Count']), f"{row['Pct']}%", row['Histogram'])
+            for _, row in stft_data.iterrows()
+        ]
+        logger.info(f"FuelTrimPanel: Generated {len(stft_rows)} STFT rows")
+        self._repopulate_table(
+            self.query_one("#stft-table", DataTable),
+            ["Range", "Count", "Pct", "Distribution"],
+            stft_rows,
+            "stft-table"
+        )
         
         # MAF Analysis
         maf_data = generate_maf_analysis(df)
-        maf_table = self.query_one("#maf-table", DataTable)
-        maf_table.clear(columns=True)
+        logger.info(f"FuelTrimPanel: Generated MAF data, empty={maf_data.empty}")
         if not maf_data.empty:
-            maf_table.add_columns("MAF Range", "STFT", "LTFT", "Combined", "Status", "Samples")
-            for _, row in maf_data.iterrows():
-                maf_table.add_row(
-                    row['MAF Range'],
-                    row['STFT'],
-                    row['LTFT'],
-                    row['Combined'],
-                    row['Status'],
-                    str(row['Samples'])
-                )
+            maf_rows = [
+                (row['MAF Range'], row['STFT'], row['LTFT'], row['Combined'], row['Status'], str(row['Samples']))
+                for _, row in maf_data.iterrows()
+            ]
+            self._repopulate_table(
+                self.query_one("#maf-table", DataTable),
+                ["MAF Range", "STFT", "LTFT", "Combined", "Status", "Samples"],
+                maf_rows,
+                "maf-table"
+            )
+        else:
+            self._repopulate_table(self.query_one("#maf-table", DataTable), [], [], "maf-table")
+        
+        logger.info("FuelTrimPanel.update_data complete")
 
 
 class BoostPanel(Static):
@@ -282,29 +390,46 @@ class BoostPanel(Static):
             yield Static("WOT Performance", classes="section-title")
             yield DataTable(id="wot-stats-table", zebra_stripes=True)
     
+    def _repopulate_table(self, table: DataTable, columns: list, rows: list):
+        """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
+        table.clear(columns=True)
+        if columns:
+            table.add_columns(*columns)
+        for row in rows:
+            table.add_row(*row)
+        table.refresh(layout=True)
+    
     def update_data(self, df_wot: pd.DataFrame):
         """Update boost tables with WOT datalog data."""
         boost_dist, wot_stats = generate_boost_analysis(df_wot)
         
         # Boost distribution
-        dist_table = self.query_one("#boost-dist-table", DataTable)
-        dist_table.clear(columns=True)
         if boost_dist is not None and not boost_dist.empty:
-            dist_table.add_columns("Range", "Count", "Distribution")
-            for _, row in boost_dist.iterrows():
-                dist_table.add_row(
-                    row['Range'],
-                    str(row['Count']),
-                    row['Histogram']
-                )
+            dist_rows = [
+                (row['Range'], str(row['Count']), row['Histogram'])
+                for _, row in boost_dist.iterrows()
+            ]
+            self._repopulate_table(
+                self.query_one("#boost-dist-table", DataTable),
+                ["Range", "Count", "Distribution"],
+                dist_rows
+            )
+        else:
+            self._repopulate_table(self.query_one("#boost-dist-table", DataTable), [], [])
         
         # WOT stats
-        stats_table = self.query_one("#wot-stats-table", DataTable)
-        stats_table.clear(columns=True)
         if wot_stats is not None and not wot_stats.empty:
-            stats_table.add_columns("Metric", "Value")
-            for _, row in wot_stats.iterrows():
-                stats_table.add_row(row['Metric'], str(row['Value']))
+            stats_rows = [
+                (row['Metric'], str(row['Value']))
+                for _, row in wot_stats.iterrows()
+            ]
+            self._repopulate_table(
+                self.query_one("#wot-stats-table", DataTable),
+                ["Metric", "Value"],
+                stats_rows
+            )
+        else:
+            self._repopulate_table(self.query_one("#wot-stats-table", DataTable), [], [])
 
 
 class PowerEnrichmentPanel(Static):
@@ -315,23 +440,31 @@ class PowerEnrichmentPanel(Static):
             yield Static("AFR by RPM (WOT, Load > 80%)", classes="section-title")
             yield DataTable(id="pe-table", zebra_stripes=True)
     
+    def _repopulate_table(self, table: DataTable, columns: list, rows: list):
+        """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
+        table.clear(columns=True)
+        if columns:
+            table.add_columns(*columns)
+        for row in rows:
+            table.add_row(*row)
+        table.refresh(layout=True)
+    
     def update_data(self, df_wot: pd.DataFrame):
         """Update PE table with WOT datalog data."""
         pe_data = generate_pe_analysis(df_wot)
         
-        pe_table = self.query_one("#pe-table", DataTable)
-        pe_table.clear(columns=True)
         if pe_data is not None and not pe_data.empty:
-            pe_table.add_columns("RPM", "Lambda", "AFR", "STFT", "Status")
-            for _, row in pe_data.iterrows():
-                status = row['Status']
-                pe_table.add_row(
-                    row['RPM'],
-                    row['Lambda'],
-                    row['AFR'],
-                    row['STFT'],
-                    status
-                )
+            pe_rows = [
+                (row['RPM'], row['Lambda'], row['AFR'], row['STFT'], row['Status'])
+                for _, row in pe_data.iterrows()
+            ]
+            self._repopulate_table(
+                self.query_one("#pe-table", DataTable),
+                ["RPM", "Lambda", "AFR", "STFT", "Status"],
+                pe_rows
+            )
+        else:
+            self._repopulate_table(self.query_one("#pe-table", DataTable), [], [])
 
 
 class ActionItemsPanel(Static):
@@ -342,20 +475,28 @@ class ActionItemsPanel(Static):
             yield Static("Action Items", classes="section-title")
             yield DataTable(id="actions-table", zebra_stripes=True)
     
+    def _repopulate_table(self, table: DataTable, columns: list, rows: list):
+        """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
+        table.clear(columns=True)
+        if columns:
+            table.add_columns(*columns)
+        for row in rows:
+            table.add_row(*row)
+        table.refresh(layout=True)
+    
     def update_data(self, df_all: pd.DataFrame, df_wot: pd.DataFrame):
         """Update action items table."""
         actions = generate_action_items(df_all, df_wot)
         
-        table = self.query_one("#actions-table", DataTable)
-        table.clear(columns=True)
-        table.add_columns("Priority", "Category", "Item", "Status")
-        for _, row in actions.iterrows():
-            table.add_row(
-                str(row['Priority']),
-                row['Category'],
-                row['Item'],
-                row['Status']
-            )
+        action_rows = [
+            (str(row['Priority']), row['Category'], row['Item'], row['Status'])
+            for _, row in actions.iterrows()
+        ]
+        self._repopulate_table(
+            self.query_one("#actions-table", DataTable),
+            ["Priority", "Category", "Item", "Status"],
+            action_rows
+        )
 
 
 class AIChatScreen(ModalScreen):
@@ -587,6 +728,79 @@ class SaveFileScreen(ModalScreen):
         self.dismiss(None)
 
 
+class ConfirmScreen(ModalScreen):
+    """Simple confirmation dialog."""
+    
+    DEFAULT_CSS = """
+    ConfirmScreen {
+        align: center middle;
+    }
+    #confirm-container {
+        width: 50;
+        height: auto;
+        background: #1c2128;
+        border: solid #003366;
+        padding: 1 2;
+    }
+    #confirm-title {
+        text-align: center;
+        text-style: bold;
+        color: #ffd700;
+        margin-bottom: 1;
+    }
+    #confirm-message {
+        text-align: center;
+        margin-bottom: 1;
+    }
+    #confirm-hint {
+        text-align: center;
+        color: #666;
+        text-style: italic;
+        margin-bottom: 1;
+    }
+    #confirm-buttons {
+        align: center middle;
+        height: 3;
+    }
+    #confirm-buttons Button {
+        margin: 0 1;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("enter", "confirm", "Confirm"),
+    ]
+    
+    def __init__(self, title: str, message: str, hint: str = ""):
+        super().__init__()
+        self.title_text = title
+        self.message_text = message
+        self.hint_text = hint
+    
+    def compose(self) -> ComposeResult:
+        with Container(id="confirm-container"):
+            yield Static(self.title_text, id="confirm-title")
+            yield Static(self.message_text, id="confirm-message")
+            if self.hint_text:
+                yield Static(self.hint_text, id="confirm-hint")
+            with Horizontal(id="confirm-buttons"):
+                yield Button("Yes", id="yes-btn", variant="error")
+                yield Button("No", id="no-btn", variant="success")
+    
+    def on_button_pressed(self, event: Button.Pressed):
+        if event.button.id == "yes-btn":
+            self.dismiss(True)
+        else:
+            self.dismiss(False)
+    
+    def action_cancel(self):
+        self.dismiss(False)
+    
+    def action_confirm(self):
+        self.dismiss(True)
+
+
 class FilePickerScreen(ModalScreen):
     """Modal screen for picking datalog files."""
     
@@ -702,6 +916,8 @@ class DAMGoodApp(App):
     }
     
     #status-label {
+        color: $text-dim;
+        height: auto;
         margin-bottom: 1;
     }
     
@@ -748,10 +964,11 @@ class DAMGoodApp(App):
     
     #summary-panel {
         height: auto;
-        max-height: 10;
+        max-height: 22;
         border: solid $border-color;
         margin: 0 0 1 0;
         width: 100%;
+        overflow-y: auto;
     }
     
     #actions-panel {
@@ -810,19 +1027,10 @@ class DAMGoodApp(App):
     }
     
     #load-datalog-btn {
-        background: $accent;
-        color: #fff;
-        text-style: bold;
         margin-bottom: 1;
     }
     
-    #load-datalog-btn:hover {
-        background: $success;
-        color: #000;
-    }
-    
     #add-datalog-btn {
-        background: $surface-light;
         margin-bottom: 1;
     }
     
@@ -844,11 +1052,6 @@ class DAMGoodApp(App):
         color: $warning;
         height: 1;
         margin-top: 1;
-    }
-    
-    #status-label {
-        color: $text-dim;
-        height: auto;
     }
     
     /* File picker modal */
@@ -940,9 +1143,19 @@ class DAMGoodApp(App):
     }
     
     /* Panel containers */
-    FuelTrimPanel, BoostPanel, PowerEnrichmentPanel, ActionItemsPanel {
+    FuelTrimPanel, BoostPanel, PowerEnrichmentPanel {
         width: 100%;
         height: auto;
+    }
+    
+    #actions-panel {
+        width: 100%;
+        height: 10;
+        min-height: 8;
+        border-top: solid $border-color;
+        padding: 0 1;
+        background: $surface;
+        dock: bottom;
     }
     
     /* Tab content */
@@ -1143,7 +1356,6 @@ class DAMGoodApp(App):
                 with TabbedContent():
                     with TabPane("Summary", id="tab-summary"):
                         yield SummaryPanel(id="summary-panel")
-                        yield ActionItemsPanel(id="actions-panel")
                     
                     with TabPane("Fuel Trims", id="tab-fuel"):
                         with ScrollableContainer():
@@ -1156,6 +1368,9 @@ class DAMGoodApp(App):
                     with TabPane("Power Enrichment", id="tab-pe"):
                         with ScrollableContainer():
                             yield PowerEnrichmentPanel(id="pe-panel")
+                
+                # Action items shown below all tabs
+                yield ActionItemsPanel(id="actions-panel")
         
         yield Footer()
     
@@ -1210,6 +1425,25 @@ class DAMGoodApp(App):
     
     def action_load_datalog(self):
         """Load a datalog file."""
+        # If files already loaded, confirm overwrite
+        if self.datalogs:
+            def handle_confirm(confirmed: bool):
+                if confirmed:
+                    self._do_load_datalog()
+            
+            self.push_screen(
+                ConfirmScreen(
+                    "⚠️ Replace existing logs?",
+                    "This will clear all currently loaded datalogs.",
+                    "Tip: Use 'Add Another' to keep existing logs."
+                ),
+                handle_confirm
+            )
+        else:
+            self._do_load_datalog()
+    
+    def _do_load_datalog(self):
+        """Actually load the datalog file."""
         start_path = self.datalogs[-1].parent if self.datalogs else Path.home()
         
         def handle_result(result):
@@ -1218,6 +1452,7 @@ class DAMGoodApp(App):
                 try:
                     df = self._validate_and_load(path)
                     self.datalogs = [path]  # Reset to single file
+                    self.datalog_dfs = {}  # Clear stored dataframes
                     self._process_datalog(df, path)
                 except ValueError as e:
                     self.update_status(f"⚠️ {e}")
@@ -1309,7 +1544,11 @@ class DAMGoodApp(App):
         self.log_type = log_type
         
         # Enable buttons now that we have data
-        self.query_one("#add-datalog-btn", Button).disabled = False
+        # Swap button emphasis: Add Another is now primary action
+        self.query_one("#load-datalog-btn", Button).variant = "default"
+        add_btn = self.query_one("#add-datalog-btn", Button)
+        add_btn.disabled = False
+        add_btn.variant = "success"
         self.query_one("#generate-btn", Button).disabled = False
         self.query_one("#export-btn", Button).disabled = False
         
@@ -1333,32 +1572,49 @@ class DAMGoodApp(App):
     
     def _select_view(self, filepath):
         """Select a specific datalog to view."""
+        logger.info(f"_select_view called with: {filepath}")
+        
         # Ensure filepath is a Path object for consistent comparison
         filepath = Path(filepath) if not isinstance(filepath, Path) else filepath
         
-        # Skip if already viewing this file
-        if self.active_view == filepath:
+        # Skip if already viewing this file (compare resolved paths)
+        if self.active_view is not None and Path(self.active_view).resolve() == filepath.resolve():
+            logger.info(f"_select_view: Already viewing this file, skipping")
             return
         
-        if filepath in self.datalog_dfs:
-            self.active_view = filepath
-            df, log_type, df_wot = self.datalog_dfs[filepath]
+        # Find the matching key in datalog_dfs (Path comparison can be tricky)
+        matching_key = None
+        for key in self.datalog_dfs:
+            if Path(key).resolve() == filepath.resolve():
+                matching_key = key
+                break
+        
+        logger.info(f"_select_view: matching_key={matching_key}")
+        
+        if matching_key is not None:
+            self.active_view = matching_key
+            df, log_type, df_wot = self.datalog_dfs[matching_key]
             self.df_all = df
             self.df_wot = df_wot
             self.log_type = log_type
+            logger.info(f"_select_view: Loaded df with {len(df)} rows, log_type={log_type}")
             
             # Update UI without recreating all labels - just update active states
             try:
                 container = self.query_one("#loaded-files-container", Vertical)
                 for label in container.children:
                     if isinstance(label, LoadedFileLabel):
-                        label.set_active(label.filepath == filepath)
-            except Exception:
-                pass
+                        is_match = Path(label.filepath).resolve() == Path(matching_key).resolve()
+                        label.set_active(is_match)
+            except Exception as e:
+                logger.error(f"_select_view: Error updating labels: {e}")
             
             self.query_one("#log-type-label", Static).update(f"Active: {self.log_type}")
+            logger.info("_select_view: Calling _analyze()")
             self._analyze()
             self.update_status(f"Viewing: {filepath.name} | {len(self.df_all)} samples")
+        else:
+            logger.warning(f"_select_view: No matching key found for {filepath}")
     
     def _update_file_list(self):
         """Update the clickable file list in the sidebar."""
@@ -1366,8 +1622,9 @@ class DAMGoodApp(App):
         container.remove_children()
         
         for filepath in self.datalogs:
-            is_active = (self.active_view == filepath)
-            label = LoadedFileLabel(filepath, self._select_view, self._remove_datalog, is_active=is_active)
+            is_active = (self.active_view is not None and 
+                        Path(self.active_view).resolve() == Path(filepath).resolve())
+            label = LoadedFileLabel(filepath, is_active=is_active)
             container.mount(label)
     
     def _remove_datalog(self, filepath: Path):
@@ -1405,18 +1662,52 @@ class DAMGoodApp(App):
     
     def _analyze(self):
         """Run analysis on loaded data and update all panels."""
+        logger.info(f"_analyze called. df_all is None: {self.df_all is None}")
         if self.df_all is None:
+            logger.warning("_analyze: df_all is None, returning early")
             return
         
-        # Update all panels
-        self.query_one("#summary-panel", SummaryPanel).update_data(self.df_all, self.config)
-        self.query_one("#fuel-panel", FuelTrimPanel).update_data(self.df_all)
-        self.query_one("#boost-panel", BoostPanel).update_data(self.df_wot)
-        self.query_one("#pe-panel", PowerEnrichmentPanel).update_data(self.df_wot)
-        self.query_one("#actions-panel", ActionItemsPanel).update_data(self.df_all, self.df_wot)
+        logger.info(f"_analyze: df_all has {len(self.df_all)} rows, df_wot has {len(self.df_wot) if self.df_wot is not None else 0} rows")
+        
+        # Update all panels with try/except to catch errors
+        try:
+            logger.info("_analyze: Updating summary-panel")
+            self.query_one("#summary-panel", SummaryPanel).update_data(self.df_all, self.config)
+            logger.info("_analyze: summary-panel updated successfully")
+        except Exception as e:
+            logger.error(f"_analyze: Error updating summary-panel: {e}", exc_info=True)
+        
+        try:
+            logger.info("_analyze: Updating fuel-panel")
+            self.query_one("#fuel-panel", FuelTrimPanel).update_data(self.df_all)
+            logger.info("_analyze: fuel-panel updated successfully")
+        except Exception as e:
+            logger.error(f"_analyze: Error updating fuel-panel: {e}", exc_info=True)
+        
+        try:
+            logger.info("_analyze: Updating boost-panel")
+            self.query_one("#boost-panel", BoostPanel).update_data(self.df_wot)
+            logger.info("_analyze: boost-panel updated successfully")
+        except Exception as e:
+            logger.error(f"_analyze: Error updating boost-panel: {e}", exc_info=True)
+        
+        try:
+            logger.info("_analyze: Updating pe-panel")
+            self.query_one("#pe-panel", PowerEnrichmentPanel).update_data(self.df_wot)
+            logger.info("_analyze: pe-panel updated successfully")
+        except Exception as e:
+            logger.error(f"_analyze: Error updating pe-panel: {e}", exc_info=True)
+        
+        try:
+            logger.info("_analyze: Updating actions-panel")
+            self.query_one("#actions-panel", ActionItemsPanel).update_data(self.df_all, self.df_wot)
+            logger.info("_analyze: actions-panel updated successfully")
+        except Exception as e:
+            logger.error(f"_analyze: Error updating actions-panel: {e}", exc_info=True)
         
         self.update_file_info()
         self._update_phase_display()
+        logger.info("_analyze: Complete")
     
     def on_button_pressed(self, event: Button.Pressed):
         """Handle button presses."""
@@ -1514,8 +1805,11 @@ class DAMGoodApp(App):
         container = self.query_one("#loaded-files-container", Vertical)
         container.remove_children()
         
-        # Disable buttons
-        self.query_one("#add-datalog-btn", Button).disabled = True
+        # Disable buttons and reset variants
+        self.query_one("#load-datalog-btn", Button).variant = "success"
+        add_btn = self.query_one("#add-datalog-btn", Button)
+        add_btn.disabled = True
+        add_btn.variant = "default"
         self.query_one("#generate-btn", Button).disabled = True
         self.query_one("#export-btn", Button).disabled = True
         
@@ -1666,7 +1960,10 @@ class DAMGoodApp(App):
         actions_table.clear(columns=True)
         
         # Disable buttons until new data loaded
-        self.query_one("#add-datalog-btn", Button).disabled = True
+        self.query_one("#load-datalog-btn", Button).variant = "success"
+        add_btn = self.query_one("#add-datalog-btn", Button)
+        add_btn.disabled = True
+        add_btn.variant = "default"
         self.query_one("#generate-btn", Button).disabled = True
         self.query_one("#export-btn", Button).disabled = True
         
@@ -1716,7 +2013,10 @@ class DAMGoodApp(App):
         actions_table.clear(columns=True)
         
         # Disable buttons until new data loaded
-        self.query_one("#add-datalog-btn", Button).disabled = True
+        self.query_one("#load-datalog-btn", Button).variant = "success"
+        add_btn = self.query_one("#add-datalog-btn", Button)
+        add_btn.disabled = True
+        add_btn.variant = "default"
         self.query_one("#generate-btn", Button).disabled = True
         self.query_one("#export-btn", Button).disabled = True
         
