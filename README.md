@@ -14,7 +14,7 @@ AI-powered datalog analysis and tuning tools for the **2015-2021 Subaru WRX (VA 
 - ⛽ Fuel trim analysis, knock detection, boost control review
 - 📋 Revised table generation for Atlas import
 
-> ⚠️ **Unofficial Resource**: This project is not affiliated with, endorsed by, or supported by Atlas or Subaru. All documentation is community-sourced and provided as-is for educational purposes.
+> ⚠️ **Community Project**: Built by Atlas community tuners, but not officially endorsed by Atlas or Subaru. All documentation is community-sourced and provided as-is for educational purposes.
 
 ## Platform Support
 
