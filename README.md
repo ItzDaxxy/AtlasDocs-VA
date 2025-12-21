@@ -1,5 +1,7 @@
 # 🏎️ DAMGood
 
+> ⚡ **UNDER ACTIVE DEVELOPMENT** — This project is changing rapidly. Expect breaking changes and frequent updates.
+
 **Because DAM=1.00 is the only acceptable answer.**
 
 AI-powered datalog analysis and tuning tools for the **2015-2021 Subaru WRX (VA chassis)** with FA20DIT engine, built for the [Atlas Open Source Tuning Suite](https://github.com/atlas-tuning).
