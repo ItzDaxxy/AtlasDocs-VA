@@ -31,121 +31,46 @@ This repository contains:
 - **Tuning Workflow** - Complete dial-in process with table corrections and math
 - **AI Tuning Agent** - AGENTS.md instructions for AI-assisted datalog analysis
 
-## Three Ways to Use This Tool
-
-### Option 1: 🖥️ Terminal UI (TUI)
-Launch the interactive terminal interface for a visual analysis experience:
-
-```bash
-./bin/damgood          # Terminal
-./bin/damgood-web      # Web browser (http://localhost:8000)
-```
-
-**Features:**
-- **Tabbed interface** — Summary, Fuel Trims, Boost, Power Enrichment panels
-- **Auto-detection** — Automatically identifies WOT vs Cruise vs Mixed logs
-- **Clickable file management** — Add/remove datalogs, hover to see remove option
-- **Save dialogs** — Browse and choose where to export files
-- **AI Chat** — Built-in AI assistant for detailed analysis (press `A`)
-- **Web accessible** — Run in browser via textual-serve
-
-**Keyboard Shortcuts:**
-| Key | Action |
-|-----|--------|
-| `L` | Load datalog |
-| `A` | AI Chat (requires API key) |
-| `G` | Generate revised tables |
-| `R` | Refresh analysis |
-| `X` | Reset to default state |
-| `Q` | Quit |
-
-**AI Chat Setup:**
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."  # or
-export OPENAI_API_KEY="sk-..."
-```
+## Terminal UI
 
 | Summary | Fuel Trims | Boost |
 |---------|------------|-------|
 | ![Summary](assets/tui-summary.png) | ![Fuel Trims](assets/tui-fuel-trims.png) | ![Boost](assets/tui-boost.png) |
 
-### Option 2: Static Scripts
-Run the analyzer directly from the command line for quick, automated reports:
+**Features:**
+- Tabbed interface — Summary, Fuel Trims, Boost, Power Enrichment
+- Auto-detection of WOT vs Cruise vs Mixed logs
+- AI Chat for interactive analysis (press `A`, requires API key)
+- Generate revised Atlas tables directly
+
+**Keyboard Shortcuts:** `L` Load | `A` AI Chat | `G` Generate Tables | `R` Refresh | `Q` Quit
+
+**AI Chat:** Set `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` environment variable.
+
+## Command Line
 
 ```bash
 python scripts/analyze_datalog.py --wot wot.csv --cruise cruise.csv
 ```
 
-No AI required — just Python and pandas. Great for batch processing or CI/CD pipelines.
+## AI Assistant
 
-### Option 3: 🤖 Interactive AI Assistant
-
-This repo includes an `AGENTS.md` file that turns AI assistants into FA20 tuning experts. Clone this repo and open it in [Amp](https://ampcode.com) or add it to a Claude project, and you get an interactive tuning partner that can:
-
-- **Analyze your datalogs conversationally** — just drop a CSV and ask questions
-- **Explain what the data means** — "Why is my STFT negative at high MAF?"
-- **Generate full tuning reports** — formatted tables, histograms, and action items
-- **Calculate table corrections** — MAF scaling, PE targets, boost adjustments
-- **Debug tuning issues** — "I'm getting knock at 4500 RPM, what should I check?"
-
-#### Example Interaction
-
-```
-You: Here's my WOT datalog, what do you see?
-AI:  [analyzes CSV] Your DAM is solid at 1.00, no knock events. 
-     However, STFT is running +8% lean at 4500-5000 RPM during WOT.
-     Your PE table needs enrichment in that range. Here's the correction...
-```
-
-Unlike static scripts, the AI can answer follow-up questions, explain its reasoning, and adapt recommendations to your specific build and situation.
+This repo includes `AGENTS.md` that turns AI assistants into FA20 tuning experts. Open this project in [Amp](https://ampcode.com) and get an interactive tuning partner that analyzes datalogs, explains issues, and calculates table corrections.
 
 ## Installation
 
 ```bash
-# Clone the repo
 git clone https://github.com/ItzDaxxy/DAMGood.git
 cd DAMGood
-
-# Run the installer
-./install.sh
+chmod +x install.sh && ./install.sh
 ```
 
-The installer will:
-- Create a Python virtual environment
-- Install all dependencies (pandas, textual, rich, etc.)
-- Add the `damgood` command to your shell
-
-After installation, launch from anywhere:
+Then run:
 ```bash
-damgood           # Terminal UI
-damgood --web     # Web browser (http://localhost:8000)
+damgood
 ```
 
 **Requirements:** Python 3.9+
-
-### Manual Installation (if install.sh doesn't work)
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
-pip install -r requirements.txt
-
-# Run directly
-python scripts/tui.py
-```
-
-## Quick Start
-
-```bash
-# Initialize a new tuning project (interactive mod list intake)
-./scripts/setup_tuning_project.sh ~/my-wrx-tune
-
-# Launch the interactive TUI
-damgood
-
-# Or analyze from command line
-python scripts/analyze_datalog.py --wot datalogs/wot.csv --cruise datalogs/cruise.csv
-```
 
 ## New Project Setup Flow
 
