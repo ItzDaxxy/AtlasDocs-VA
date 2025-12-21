@@ -326,8 +326,16 @@ def generate_pe_analysis(df_wot):
             lam = subset['Sensors - AF Ratio 1'].mean()
             afr = lam * 14.7
             stft = subset['Fuel - Command - Corrections - AF Correction STFT'].mean()
-            status = '✅ OK' if abs(stft) < 3 else \
-                     ('⚠️ Monitor' if abs(stft) < 7 else '❌ Lean')
+            # Positive STFT = ECU adding fuel = tune is lean
+            # Negative STFT = ECU removing fuel = tune is rich
+            if abs(stft) < 3:
+                status = '✅ OK'
+            elif stft > 0:
+                # ECU adding fuel - tune is lean
+                status = '⚠️ Lean' if stft < 7 else '❌ Too Lean'
+            else:
+                # ECU removing fuel - tune is rich (less concerning at WOT)
+                status = '⚠️ Rich' if stft > -7 else '⚠️ Very Rich'
             pe_data.append({
                 'RPM': f'{lo}-{hi}',
                 'Lambda': f'{lam:.3f}',
@@ -550,43 +558,107 @@ def prompt_for_table_generation(df_all, df_wot):
 
 
 def generate_action_items(df, df_wot):
-    """Generate prioritized action items."""
+    """Generate prioritized action items based on analysis findings."""
     items = []
     
-    dam_min = df['Ignition - Dynamic Advance Multiplier'].min()
-    fbk_min = df['Ignition - Feedback Knock'].min()
+    # Safety checks (Priority 1)
+    dam_col = 'Ignition - Dynamic Advance Multiplier'
+    fbk_col = 'Ignition - Feedback Knock'
+    fkl_col = 'Ignition - Fine Knock Learn'
     
-    items.append({'Priority': '1', 'Category': 'Safety', 
-                  'Item': f'DAM at {dam_min:.2f}', 
-                  'Status': '✅ Complete' if dam_min >= 0.95 else '⚠️ Monitor'})
-    items.append({'Priority': '1', 'Category': 'Safety', 
-                  'Item': f'FBK at {fbk_min:.2f}°', 
-                  'Status': '✅ Complete' if fbk_min >= -1 else '⚠️ Investigate'})
+    if dam_col in df.columns:
+        dam_min = df[dam_col].min()
+        if dam_min < 0.75:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': f'CRITICAL: DAM dropped to {dam_min:.2f} - reduce timing/boost immediately', 
+                          'Status': '❌ Action Required'})
+        elif dam_min < 0.95:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': f'DAM at {dam_min:.2f} - monitor closely, consider timing reduction', 
+                          'Status': '⚠️ Monitor'})
+        else:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': f'DAM stable at {dam_min:.2f}', 
+                          'Status': '✅ OK'})
     
-    # Check boost overshoot
-    wot_mask = df_wot['Throttle - Requested Torque - Main Accelerator Position'] > 80
-    wot_df = df_wot[wot_mask]
-    if len(wot_df) > 0:
-        overshoot = (wot_df['Airflow - Turbo - Boost - Manifold Absolute Pressure'] - \
-                    wot_df['Airflow - Turbo - Boost - Boost Target Final (Absolute)']).mean()
-        if overshoot > 2:
-            items.append({'Priority': '2', 'Category': 'Boost', 
-                         'Item': 'Reduce Boost Target Main (overshoot detected)', 
+    if fbk_col in df.columns:
+        fbk_min = df[fbk_col].min()
+        if fbk_min < -3:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': f'Significant knock detected (FBK {fbk_min:.1f}°) - investigate cause', 
+                          'Status': '❌ Action Required'})
+        elif fbk_min < -1:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': f'Minor knock events (FBK {fbk_min:.1f}°) - monitor', 
+                          'Status': '⚠️ Monitor'})
+        else:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': 'No knock events detected', 
+                          'Status': '✅ OK'})
+    
+    if fkl_col in df.columns:
+        fkl_min = df[fkl_col].min()
+        if fkl_min < -2:
+            items.append({'Priority': '1', 'Category': 'Safety', 
+                          'Item': f'FKL showing retard ({fkl_min:.1f}°) - reduce timing in affected cells', 
+                          'Status': '⚠️ Monitor'})
+    
+    # Boost checks (Priority 2)
+    throttle_col = 'Throttle - Requested Torque - Main Accelerator Position'
+    map_col = 'Airflow - Turbo - Boost - Manifold Absolute Pressure'
+    target_col = 'Airflow - Turbo - Boost - Boost Target Final (Absolute)'
+    boost_col = 'Analytical - Boost Pressure'
+    
+    if throttle_col in df_wot.columns:
+        wot_mask = df_wot[throttle_col] > 80
+        wot_df = df_wot[wot_mask]
+        if len(wot_df) > 0 and map_col in wot_df.columns and target_col in wot_df.columns:
+            overshoot = (wot_df[map_col] - wot_df[target_col]).mean()
+            if overshoot > 0.15:  # ~2 psi in bar
+                items.append({'Priority': '2', 'Category': 'Boost', 
+                             'Item': 'Reduce Boost Target Main or adjust WGDC (overshoot detected)', 
+                             'Status': '☐ Pending'})
+        
+        if len(wot_df) > 0 and boost_col in wot_df.columns:
+            peak_boost = wot_df[boost_col].max()
+            if peak_boost > 20:
+                items.append({'Priority': '2', 'Category': 'Boost', 
+                             'Item': f'Peak boost {peak_boost:.1f} psi exceeds stock turbo safe limit', 
+                             'Status': '⚠️ Monitor'})
+    
+    # Fuel trim checks (Priority 3)
+    stft_col = 'Fuel - Command - Corrections - AF Correction STFT'
+    ltft_col = 'Fuel - Command - Corrections - AF Learn 1 (LTFT)'
+    load_col = 'Engine - Calculated Load'
+    rpm_col = 'Engine - RPM'
+    
+    if stft_col in df.columns and ltft_col in df.columns:
+        combined_avg = df[stft_col].mean() + df[ltft_col].mean()
+        if abs(combined_avg) > 8:
+            direction = "lean" if combined_avg > 0 else "rich"
+            items.append({'Priority': '3', 'Category': 'Fuel', 
+                         'Item': f'Combined fuel trim {combined_avg:+.1f}% - MAF scaling needs adjustment ({direction})', 
                          'Status': '☐ Pending'})
     
-    # Check high RPM STFT
-    high_load = df_wot[df_wot['Engine - Calculated Load'] > 0.8]
-    if len(high_load) > 0:
-        high_rpm = high_load[high_load['Engine - RPM'] > 4000]
-        if len(high_rpm) > 0:
-            stft_high = high_rpm['Fuel - Command - Corrections - AF Correction STFT'].mean()
-            if stft_high > 5:
-                items.append({'Priority': '3', 'Category': 'Fuel', 
-                             'Item': 'Enrich PE Target at 4000+ RPM', 
-                             'Status': '☐ Pending'})
+    # High RPM WOT fueling check
+    if load_col in df_wot.columns and stft_col in df_wot.columns and rpm_col in df_wot.columns:
+        high_load = df_wot[df_wot[load_col] > 0.8]
+        if len(high_load) > 0:
+            high_rpm = high_load[high_load[rpm_col] > 4000]
+            if len(high_rpm) > 0:
+                stft_high = high_rpm[stft_col].mean()
+                if stft_high > 5:
+                    items.append({'Priority': '3', 'Category': 'Fuel', 
+                                 'Item': f'Enrich PE Target at 4000+ RPM (STFT {stft_high:+.1f}%)', 
+                                 'Status': '☐ Pending'})
+                elif stft_high < -7:
+                    items.append({'Priority': '3', 'Category': 'Fuel', 
+                                 'Item': f'PE Target may be too rich at 4000+ RPM (STFT {stft_high:+.1f}%)', 
+                                 'Status': '☐ Review'})
     
+    # Always add validation reminder
     items.append({'Priority': '4', 'Category': 'Validation', 
-                  'Item': 'New datalogs after changes', 
+                  'Item': 'Capture new datalogs after any table changes', 
                   'Status': '☐ Pending'})
     
     return pd.DataFrame(items)
