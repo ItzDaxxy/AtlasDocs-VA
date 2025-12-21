@@ -65,7 +65,9 @@ export ANTHROPIC_API_KEY="sk-ant-..."  # or
 export OPENAI_API_KEY="sk-..."
 ```
 
-![TUI Screenshot](assets/tui-screenshot.png)
+| Summary | Fuel Trims | Boost |
+|---------|------------|-------|
+| ![Summary](assets/tui-summary.png) | ![Fuel Trims](assets/tui-fuel-trims.png) | ![Boost](assets/tui-boost.png) |
 
 ### Option 2: Static Scripts
 Run the analyzer directly from the command line for quick, automated reports:
