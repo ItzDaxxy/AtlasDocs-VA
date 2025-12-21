@@ -2132,36 +2132,6 @@ class DAMGoodApp(App):
         )
 
 
-class ConfirmScreen(ModalScreen):
-    """Confirmation dialog screen."""
-    
-    def __init__(self, message: str, on_yes: callable, on_no: callable, on_cancel: callable = None):
-        super().__init__()
-        self.message = message
-        self.on_yes = on_yes
-        self.on_no = on_no
-        self.on_cancel = on_cancel or (lambda: None)
-    
-    def compose(self) -> ComposeResult:
-        with Container(id="confirm-container"):
-            yield Static(self.message, id="confirm-message")
-            with Horizontal(id="confirm-buttons"):
-                yield Button("Save", id="yes-btn", variant="success")
-                yield Button("Don't Save", id="no-btn", variant="error")
-                yield Button("Cancel", id="cancel-btn", variant="default")
-    
-    def on_button_pressed(self, event: Button.Pressed):
-        if event.button.id == "yes-btn":
-            self.dismiss(None)
-            self.on_yes()
-        elif event.button.id == "no-btn":
-            self.dismiss(None)
-            self.on_no()
-        elif event.button.id == "cancel-btn":
-            self.dismiss(None)
-            self.on_cancel()
-
-
 def main():
     app = DAMGoodApp()
     app.run()
