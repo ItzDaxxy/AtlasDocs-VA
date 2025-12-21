@@ -31,7 +31,8 @@ tuning-history/*.json
 !bin/
 
 # Images
-*.png
+# Allow assets/*.png for README screenshots
+!assets/*.png
 
 # Other (but keep AGENTS.md - it's essential)
 FA20-ANALYZER.md
