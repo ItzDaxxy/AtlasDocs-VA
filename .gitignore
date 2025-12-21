@@ -1,42 +1,77 @@
-# Claude/Amp
-.claude/
-*claude*/
-.agents/
-
-# VS Code
-.vscode/
-*.code-workspace
-
 # Python
-*.pyc
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
 *.egg-info/
+.installed.cfg
+*.egg
 
-# Local/temp files
-*.local.json
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+pyvenv.cfg
+
+# Venv bin files (but keep our scripts)
+bin/Activate.ps1
+bin/activate
+bin/activate.csh
+bin/activate.fish
+bin/distro
+bin/httpx
+bin/pip
+bin/pip3
+bin/pip3.*
+bin/python
+bin/python3
+bin/python3.*
+bin/*thon
+include/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-**/.DS_Store
+Thumbs.db
 
-# Data files (keep in separate location)
-datalogs/
-*.skill
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
 
-# Personal tuning data (keep folder structure, ignore contents)
-tuning-history/analyses/*
-tuning-history/configurations/*
-tuning-history/*.json
-!tuning-history/README.md
+# Logs
+*.log
+/tmp/
 
-# Keep bin/ tracked for GitHub Action
-!bin/
+# Local settings
+.env
+.env.local
 
-# Images
-# Allow assets/*.png for README screenshots
-!assets/*.png
+# Output directories (user-generated)
+output/
 
-# Other (but keep AGENTS.md - it's essential)
-FA20-ANALYZER.md
-fa20_analyzer/
-# Personal datalogs (don't commit)
-samples/WOT.csv
-samples/cruise.csv
+# Tuning history (user data)
+tuning-history/analyses/
+tuning-history/configurations/

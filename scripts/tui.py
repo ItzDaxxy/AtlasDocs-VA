@@ -134,6 +134,7 @@ class LoadedFileLabel(Static):
     
     def on_click(self, event) -> None:
         """Handle click on this label."""
+        logger.info(f"LoadedFileLabel.on_click: filepath={self.filepath}, shift={event.shift}")
         # Let the app handle this - post to parent
         if event.shift:
             self.app._remove_datalog(self.filepath)
@@ -314,8 +315,11 @@ class SummaryPanel(Static):
         logger.info(f"SummaryPanel: Built {len(sections)} sections, calling update()")
         content.update(Group(*sections))
         logger.info("SummaryPanel: Called content.update(), now calling refresh()")
-        content.refresh()
-        self.refresh()
+        # Force full refresh with layout and repaint
+        content.refresh(layout=True, repaint=True)
+        self.refresh(layout=True, repaint=True)
+        # Schedule follow-up refresh to ensure rendering completes
+        self.call_after_refresh(lambda: content.refresh(repaint=True))
         logger.info("SummaryPanel: update_data complete")
 
 
@@ -332,14 +336,20 @@ class FuelTrimPanel(Static):
     def _repopulate_table(self, table: DataTable, columns: list, rows: list, table_name: str = ""):
         """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
         logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): clearing, cols={columns}, rows={len(rows)}")
+        # Clear and re-add columns and rows
         table.clear(columns=True)
+        # Clear cached dimensions to force recalculation
+        table.clear_cached_dimensions()
         if columns:
             table.add_columns(*columns)
             logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): added {len(columns)} columns")
         for row in rows:
             table.add_row(*row)
         logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): added {len(rows)} rows, calling refresh")
-        table.refresh(layout=True)
+        # Full refresh with layout recalculation
+        table.refresh(layout=True, repaint=True)
+        # Schedule a follow-up refresh to handle column width recalculation issue
+        self.call_after_refresh(lambda: table.refresh(repaint=True))
         logger.debug(f"FuelTrimPanel._repopulate_table({table_name}): refresh complete")
     
     def update_data(self, df: pd.DataFrame):
@@ -384,52 +394,61 @@ class BoostPanel(Static):
     """Boost control analysis panel."""
     
     def compose(self) -> ComposeResult:
-        with Vertical():
+        with Vertical(id="boost-panel-container"):
             yield Static("Boost Distribution", classes="section-title")
             yield DataTable(id="boost-dist-table", zebra_stripes=True)
             yield Static("WOT Performance", classes="section-title")
             yield DataTable(id="wot-stats-table", zebra_stripes=True)
     
-    def _repopulate_table(self, table: DataTable, columns: list, rows: list):
-        """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
-        table.clear(columns=True)
+    def _replace_table(self, table_id: str, columns: list, rows: list):
+        """Replace a DataTable with a fresh one to avoid caching issues."""
+        logger.debug(f"BoostPanel._replace_table({table_id}): cols={columns}, rows={len(rows)}")
+        
+        old_table = self.query_one(f"#{table_id}", DataTable)
+        parent = old_table.parent
+        
+        # Create new table with same ID
+        new_table = DataTable(id=table_id, zebra_stripes=True)
+        
+        # Remove old, mount new
+        old_table.remove()
+        parent.mount(new_table, before=0 if table_id == "boost-dist-table" else None)
+        
+        # Populate new table
         if columns:
-            table.add_columns(*columns)
+            new_table.add_columns(*columns)
         for row in rows:
-            table.add_row(*row)
-        table.refresh(layout=True)
+            new_table.add_row(*row)
+        
+        logger.debug(f"BoostPanel._replace_table({table_id}): complete")
     
     def update_data(self, df_wot: pd.DataFrame):
         """Update boost tables with WOT datalog data."""
+        logger.info(f"BoostPanel.update_data called with df_wot of {len(df_wot)} rows")
         boost_dist, wot_stats = generate_boost_analysis(df_wot)
+        logger.debug(f"BoostPanel: boost_dist empty={boost_dist is None or boost_dist.empty}, wot_stats empty={wot_stats is None or wot_stats.empty}")
         
-        # Boost distribution
+        # Boost distribution - replace the table entirely
         if boost_dist is not None and not boost_dist.empty:
             dist_rows = [
                 (row['Range'], str(row['Count']), row['Histogram'])
                 for _, row in boost_dist.iterrows()
             ]
-            self._repopulate_table(
-                self.query_one("#boost-dist-table", DataTable),
-                ["Range", "Count", "Distribution"],
-                dist_rows
-            )
+            self._replace_table("boost-dist-table", ["Range", "Count", "Distribution"], dist_rows)
         else:
-            self._repopulate_table(self.query_one("#boost-dist-table", DataTable), [], [])
+            self._replace_table("boost-dist-table", [], [])
         
-        # WOT stats
+        # WOT stats - replace the table entirely
         if wot_stats is not None and not wot_stats.empty:
             stats_rows = [
                 (row['Metric'], str(row['Value']))
                 for _, row in wot_stats.iterrows()
             ]
-            self._repopulate_table(
-                self.query_one("#wot-stats-table", DataTable),
-                ["Metric", "Value"],
-                stats_rows
-            )
+            self._replace_table("wot-stats-table", ["Metric", "Value"], stats_rows)
         else:
-            self._repopulate_table(self.query_one("#wot-stats-table", DataTable), [], [])
+            self._replace_table("wot-stats-table", [], [])
+        
+        logger.info("BoostPanel.update_data complete")
 
 
 class PowerEnrichmentPanel(Static):
@@ -442,16 +461,22 @@ class PowerEnrichmentPanel(Static):
     
     def _repopulate_table(self, table: DataTable, columns: list, rows: list):
         """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
+        logger.debug(f"PowerEnrichmentPanel._repopulate_table: clearing, cols={columns}, rows={len(rows)}")
         table.clear(columns=True)
+        table.clear_cached_dimensions()
         if columns:
             table.add_columns(*columns)
         for row in rows:
             table.add_row(*row)
-        table.refresh(layout=True)
+        table.refresh(layout=True, repaint=True)
+        self.call_after_refresh(lambda: table.refresh(repaint=True))
+        logger.debug("PowerEnrichmentPanel._repopulate_table: refresh complete")
     
     def update_data(self, df_wot: pd.DataFrame):
         """Update PE table with WOT datalog data."""
+        logger.info(f"PowerEnrichmentPanel.update_data called with df_wot of {len(df_wot)} rows")
         pe_data = generate_pe_analysis(df_wot)
+        logger.debug(f"PowerEnrichmentPanel: pe_data empty={pe_data is None or pe_data.empty}")
         
         if pe_data is not None and not pe_data.empty:
             pe_rows = [
@@ -477,12 +502,16 @@ class ActionItemsPanel(Static):
     
     def _repopulate_table(self, table: DataTable, columns: list, rows: list):
         """Safely repopulate a DataTable - clear, add columns/rows, and force refresh."""
+        logger.debug(f"ActionItemsPanel._repopulate_table: clearing, cols={columns}, rows={len(rows)}")
         table.clear(columns=True)
+        table.clear_cached_dimensions()
         if columns:
             table.add_columns(*columns)
         for row in rows:
             table.add_row(*row)
-        table.refresh(layout=True)
+        table.refresh(layout=True, repaint=True)
+        self.call_after_refresh(lambda: table.refresh(repaint=True))
+        logger.debug("ActionItemsPanel._repopulate_table: refresh complete")
     
     def update_data(self, df_all: pd.DataFrame, df_wot: pd.DataFrame):
         """Update action items table."""
@@ -1572,20 +1601,36 @@ class DAMGoodApp(App):
     
     def _select_view(self, filepath):
         """Select a specific datalog to view."""
-        logger.info(f"_select_view called with: {filepath}")
+        logger.info(f"_select_view called with: {filepath} (type={type(filepath).__name__})")
         
         # Ensure filepath is a Path object for consistent comparison
         filepath = Path(filepath) if not isinstance(filepath, Path) else filepath
+        logger.info(f"_select_view: filepath after Path conversion: {filepath}")
+        logger.info(f"_select_view: active_view={self.active_view} (type={type(self.active_view).__name__ if self.active_view else 'None'})")
         
         # Skip if already viewing this file (compare resolved paths)
-        if self.active_view is not None and Path(self.active_view).resolve() == filepath.resolve():
-            logger.info(f"_select_view: Already viewing this file, skipping")
-            return
+        if self.active_view is not None:
+            active_resolved = Path(self.active_view).resolve()
+            filepath_resolved = filepath.resolve()
+            logger.info(f"_select_view: Comparing paths:")
+            logger.info(f"  active_resolved: {active_resolved}")
+            logger.info(f"  filepath_resolved: {filepath_resolved}")
+            logger.info(f"  are_equal: {active_resolved == filepath_resolved}")
+            if active_resolved == filepath_resolved:
+                logger.info(f"_select_view: Already viewing this file, skipping")
+                return
         
         # Find the matching key in datalog_dfs (Path comparison can be tricky)
+        logger.info(f"_select_view: datalog_dfs has {len(self.datalog_dfs)} keys:")
+        for k in self.datalog_dfs:
+            logger.info(f"  key: {k} (type={type(k).__name__})")
+        
         matching_key = None
+        filepath_resolved = filepath.resolve()
         for key in self.datalog_dfs:
-            if Path(key).resolve() == filepath.resolve():
+            key_resolved = Path(key).resolve()
+            logger.debug(f"_select_view: comparing key_resolved={key_resolved} to filepath_resolved={filepath_resolved}")
+            if key_resolved == filepath_resolved:
                 matching_key = key
                 break
         

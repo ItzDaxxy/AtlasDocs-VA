@@ -1,5 +1,7 @@
 # 🏎️ DAMGood
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > ⚡ **UNDER ACTIVE DEVELOPMENT** — This project is changing rapidly. Expect breaking changes and frequent updates.
 
 **Because DAM=1.00 is the only acceptable answer.**
@@ -326,6 +328,12 @@ This documentation is provided for educational purposes only. Improper ECU tunin
 - Never exceed safe mechanical limits
 
 **Use at your own risk.** We are not responsible for blown engines. We've never seen one yet, but if you give bad inputs, you'll get bad outputs. You've been warned—use your head.
+
+## License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+You're free to use, modify, and distribute this software. Just keep the copyright notice and don't blame us if your engine goes boom. 💥
 
 ---
 

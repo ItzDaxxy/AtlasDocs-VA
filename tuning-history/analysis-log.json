@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "description": "Master log of all FA20 datalog analyses",
+  "vehicle": {
+    "platform": "VA WRX (2015-2021)",
+    "engine": "FA20DIT",
+    "notes": ""
+  },
+  "modset": {
+    "intake": "",
+    "exhaust": "",
+    "intercooler": "",
+    "turbo": "",
+    "fuel_system": "",
+    "other": []
+  },
+  "analyses": [
+    {
+      "id": "2025-12-18_001",
+      "datalog": "2025-12-17T11-08-58.007022Z.csv",
+      "datalog_date": "2025-12-17T11:08:58Z",
+      "analysis_date": "2025-12-18T16:58:50Z",
+      "samples": 29828,
+      "duration_seconds": 984,
+      "operating_conditions": {
+        "pct_idle": 87.8,
+        "pct_wot": 0.0,
+        "coolant_range_c": [88, 92],
+        "oil_temp_range_c": [96, 101]
+      },
+      "critical_findings": [
+        {
+          "severity": "CRITICAL",
+          "domain": "IGNITION",
+          "issue": "1135 knock events with max -5.63° retard",
+          "notes": "Knock occurring at idle - likely false knock from exhaust/heat shield noise. DAM=1.0 and FKL=0° suggest ECU not treating as real detonation."
+        },
+        {
+          "severity": "HIGH",
+          "domain": "FUEL",
+          "issue": "Lean AFR excursion to λ=1.508",
+          "notes": "Transient lean spike during decel/fuel cut - normal behavior"
+        }
+      ],
+      "fuel_summary": {
+        "stft_mean": -0.24,
+        "stft_range": [-27.52, 8.76],
+        "ltft_mean": -3.95,
+        "ltft_range": [-8.98, 0.0],
+        "afr_mean_lambda": 1.002,
+        "stft_by_load": {
+          "0-10 g/s": -1.95,
+          "10-25 g/s": -1.10,
+          "25-50 g/s": 0.07,
+          "50+ g/s": 0.87
+        }
+      },
+      "ignition_summary": {
+        "dam_min": 1.0,
+        "dam_max": 1.0,
+        "knock_events": 1135,
+        "max_knock_retard": -5.63,
+        "fine_knock_learn": 0.0
+      },
+      "recommendations": [
+        {
+          "priority": 1,
+          "category": "FUEL",
+          "action": "Apply ~4% positive MAF scaling to reduce negative LTFT",
+          "table": "Sensors - Mass Airflow",
+          "status": "pending",
+          "notes": "LTFT is -3.95% indicating base map is slightly rich. Scaling MAF up will lean out fueling."
+        },
+        {
+          "priority": 2,
+          "category": "IGNITION",
+          "action": "Investigate idle knock source",
+          "status": "pending",
+          "notes": "DAM=1.0 and FKL=0° despite 1135 events suggests false knock. Check: exhaust rattles, heat shields, accessory noise. Consider adjusting knock threshold at idle if confirmed false."
+        }
+      ],
+      "status": "reviewed",
+      "reviewer_notes": "Predominantly idle datalog. Fuel trims look reasonable. Knock at idle with healthy DAM/FKL is classic false knock pattern. Need WOT pulls for full assessment."
+    }
+  ]
+}
