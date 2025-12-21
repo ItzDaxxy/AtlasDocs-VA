@@ -72,6 +72,6 @@ htmlcov/
 # Output directories (user-generated)
 output/
 
-# Tuning history (user data)
-tuning-history/analyses/
-tuning-history/configurations/
+# Tuning history (user data - keep folder, ignore contents)
+tuning-history/*
+!tuning-history/.gitkeep
