@@ -37,7 +37,6 @@ tuning-history/*.json
 # Other (but keep AGENTS.md - it's essential)
 FA20-ANALYZER.md
 fa20_analyzer/
-requirements.txt
 # Personal datalogs (don't commit)
 samples/WOT.csv
 samples/cruise.csv
